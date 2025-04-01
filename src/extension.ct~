@@ -1,0 +1,47 @@
+the tryhello extension
+
+``//extension.ts
+``import``
+``activate``
+``
+
+activate is called the very first time the command is executed.
+
+``/activate
+export function activate(context: vscode.ExtensionContext) {
+  ``log hello``
+  ``hello world cmd``
+}
+``
+
+output diagnostic info with console.log and errors with console.error.
+
+``./log hello
+console.log("hi, the tryhello extension is now active")
+``
+
+provide the implementation of the command defined in package.json with
+registerCommand:
+
+``../hello world cmd
+const disposable = vscode.commands.registerCommand(
+  'tryhello.helloWorld', async () => {
+    // display a message box
+    vscode.window.showInformationMessage("try hello")
+
+    // try a input box
+    var response = await vscode.window.showInputBox({
+      placeHolder: "say: ",
+      prompt: "option a\noptionb"
+    })
+    console.log("response: " + response)
+  })
+
+  context.subscriptions.push(disposable)
+``
+
+import vscode
+
+``/import
+import * as vscode from 'vscode'
+``
