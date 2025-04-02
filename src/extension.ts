@@ -1,8 +1,9 @@
+// @ts-ignore
 import * as vscode from 'vscode'
 import * as codetext from "./codetext"
 import * as path from 'path'
 export function activate(context: vscode.ExtensionContext) {
-  console.log("hi, the tryjump extension is now active")
+  //console.log("hi, the codetext extension is now active")
   const assemble = vscode.commands.registerCommand(
     'ct.assemble', async () => {
       // get the editor
@@ -42,7 +43,19 @@ export function activate(context: vscode.ExtensionContext) {
       var rootnames = codetext.rootnames()
   
       // in which file should we go to line?
-      var filepick = await vscode.window.showQuickPick(rootnames)
+      var filepick
+      
+      // if more than one rootnames, pick which one
+      if (rootnames.length > 1) {
+          // todo msg 'go to line from file' or so
+          filepick = await vscode.window.showQuickPick(rootnames)
+      } else if (rootnames.length == 1) {
+          // only one rootname, take this one
+          filepick = rootnames[0]
+      } else {
+          // no root name, return
+          return
+      }
   
       // console.log("pick: " + filepick)
   
@@ -51,11 +64,12 @@ export function activate(context: vscode.ExtensionContext) {
         placeHolder: "go to line" //,
         //prompt: "option a\noptionb"
       })
-      genline = parseInt(genline)
-      // console.log("genline: " + genline)
+      var genlineint = parseInt(genline)
+      // console.log("genline: " + genlineint)
   
       // get genline's position in the ct file
-      var ctline = codetext.ctlinenr[filepick][genline]
+      //var ctline = codetext.ctlinenr[filepick][genlineint]
+      var ctline = codetext.ctlinenumber(filepick, genlineint)
   
       // make this a function jump_to_line(ctline)?
       // move the cursor. somehow we have to subtract one to get to the given line. why?

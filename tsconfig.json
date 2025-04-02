@@ -1,5 +1,6 @@
 {
-	"compilerOptions": {
+    "compilerOptions": {
+        "strictNullChecks": false,
 		"module": "Node16",
 		"target": "ES2022",
 		"outDir": "out",
@@ -15,5 +16,10 @@
 		// "noUnusedParameters": true,  /* Report errors on unused parameters. */
 		// added:
 		"allowJs": true
-	}
+    },
+    "exclude": [
+        "./eslint.config.mjs", // to avoid error
+        "./cli.js", // to avoid error
+        "./out/**/*" // if cli.js is excluded, out/ seems to need to be excluded as well
+    ]
 }

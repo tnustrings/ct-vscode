@@ -4,7 +4,7 @@ export function hello() {
 
 var goodbyemsg = ""
 
-export function setgoodbye(msg) {
+export function setgoodbye(msg: string) {
   goodbyemsg = msg
 }
 

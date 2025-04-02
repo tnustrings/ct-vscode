@@ -1,0 +1,171 @@
+# virus-prep: prep virus data for fhir import
+
+usage: python virus-prep.py <in csv> <in xlsx> <out csv>
+
+this script runs on all-plates-updated and targeted-s-gene-11-samples. the main mapping is in mapping.yaml, for the all-plates-updated additional columns are merged from the excel, their mapping is in map-extra.yaml.
+
+``//virus-prep.py:
+hi
+``import``
+``run``
+``
+
+## read and merge
+
+read the data. for all-plates-updated there are four columns in the excel that are not in the csv (plate, primers, PercentageCovered, totalCovered), so we also read the excel.
+
+``/run:
+csvin = sys.argv[1]
+df = pd.read_csv(csvin, delimiter=";")
+dfexcel = pd.read_excel(sys.argv[2])
+``
+
+read the name of the file we write the fhirable csv into
+
+``
+outfile = sys.argv[3]
+``
+
+import sys and pandas.
+
+``/import:
+import sys
+import pandas as pd
+``
+
+there is no date column, take the date from the file names.
+
+``/run
+df["effective_date_time"] = "23.09.2024"
+#print("effective date time col: " + df["effective_date_time"])
+``
+
+do the standard prep steps.
+
+``
+df = stdprep(df, mapyaml="mapping.yaml", sender="NUM_FRA", method="NUM_VIR_METADATA", datefmt="%d.%m.%Y", methodname_prefix="VIR")
+``
+
+for the all-plates-updated pull in additional columns that are in the excel but not in the csv. use a seperate yaml file to rename the columns. 
+
+do this after stdprep, so stdprep doesn't throw the merged columns out again when using the main mapping.
+
+select which columns to take from the excel, cause some seem to be scrambled, we don't wanna take them.
+
+``
+if re.search(r"All_plates_updated", csvin):
+  fromexcel = dfexcel[["seqName", "plate", "primers", "PercentageCovered", "totalCovered"]]
+  with open("map-extra.yaml", "r") as file:
+    map = yaml.safe_load(file)
+    fromexcel = rename(fromexcel, map)
+    df = pd.merge(df, fromexcel, how="left", left_on="id_SAMPLEID", right_on="id_SAMPLEID")
+``
+
+import what's needed.
+
+``/import
+import re
+import yaml
+from preplib import stdprep, rename
+from traction import traction
+from dbcq import dbcq
+``
+
+## what samples are not in the db?
+
+traction takes a db connection that we can use later for querying.
+
+``/run
+db = dbcq("num_prod")
+tr = traction(db)
+``
+
+check the sampleids. 
+
+``/run
+out = ""
+for i, row in df.iterrows():
+  sampleid = df.at[i, "id_SAMPLEID"]
+  if tr.sample(sampleid=sampleid) is None:
+    ``.``
+``
+
+for some samples the given id is extsampleid by mistake, 
+if that's the case, get the proper sampleid and put it in.
+
+dq query. ist das so irgendwie? aber vielleicht bringt dq in diesem fall gar nicht so viel
+
+centraxx_sampleidcontainer:sidc {
+    .psn,
+    .sample<sample.centraxx_sampleidcontainer:sidcext[.psn = '?' and .idcontainertype=7],
+    .idcontainertype[=6]
+}
+
+dq muesste auf jeden fall die scid und scidext aliasse in output namen aufnehmen.
+
+``
+    tryext = tr.sample(extsampleid=sampleid)
+    if not tryext is None:
+      ``set external``
+    else:
+      ``missing zero or drop``
+``
+
+wenn es die externe id gibt, setze sie.
+
+``./set external
+      query = """select sidc.psn as 'sampleidcontainer.psn' from centraxx_sampleidcontainer sidc
+  join centraxx_sampleidcontainer sidcext on sidcext.sample = sidc.sample
+  where sidcext.psn = ? and sidcext.idcontainertype = 7 and sidc.idcontainertype = 6 """
+      res = db.qfad(query, tryext["sampleidcontainer.psn"])
+      proper_psn = res[0]["sampleidcontainer.psn"]
+      print(f"changing external sampleid {tryext['sampleidcontainer.psn']} to {proper_psn}")
+      df.at[i, "id_SAMPLEID"] = proper_psn
+``
+
+sonst checke ob fuehrende null fehlt, sonst drop.
+
+``../missing zero or drop
+      # try missing zero
+      res = db.qfa("select psn from centraxx_sampleidcontainer sidc where sidc.idcontainertype = 6 and sidc.psn='0"+str(sampleid)+"'")
+
+      # ein ergebnis? behalte die psn mit leading 0
+      if (len(res) == 1):
+        df.at[i, "id_SAMPLEID"] = "0" + str(sampleid)
+        print(f"changed sampleid {sampleid} to 0{sampleid}")
+      else: # else notify
+        print(f"both sampleid {sampleid} and 0{sampleid} not in db")
+        out += sampleid + "\n"
+        #print("sample " + sampleid + " is not in db, dropping row.")
+        df.drop(i, axis="index")
+``
+
+write the non-findable sampleids to file.
+
+``/run
+f = open("not-in-db.txt", "w")
+f.write(out)
+print("samples not in db written to not-in-db.txt")
+``
+
+## patients to samples
+
+pull in the patients for the samples.
+
+``
+for i, row in df.iterrows():
+  sampleid = df.at[i, "id_SAMPLEID"]
+  # print("sampleid: " + sampleid)
+  patient = tr.patient(sampleid=str(sampleid))
+  if patient != None:
+    df.at[i, "subject_psn"] = patient["idcontainer.psn"]
+``
+
+## write
+
+write the out csv file.
+
+``
+df.to_csv(path_or_buf=outfile, sep=";" )
+print(f"output written to {outfile}")
+``

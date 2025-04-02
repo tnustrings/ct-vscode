@@ -1,8 +1,9 @@
 {
-    "name": "ct",
+    "name": "codetext",
     "displayName": "codetext: ct",
     "description": "codetext for vs code",
-    "version": "0.0.1",
+    "version": "0.0.2",
+    "publisher": "tnustrings",
     "engines": {
 	"vscode": "^1.98.0"
     },
