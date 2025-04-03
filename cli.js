@@ -1,6 +1,6 @@
 // try a little cli to test codetext
 
-var ct = require("./src/codetext")
+var ct = require("./out/codetext")
 var fs = require("fs")
 
 // get ctfile

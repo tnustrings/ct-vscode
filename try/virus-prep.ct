@@ -4,7 +4,7 @@ usage: python virus-prep.py <in csv> <in xlsx> <out csv>
 
 this script runs on all-plates-updated and targeted-s-gene-11-samples. the main mapping is in mapping.yaml, for the all-plates-updated additional columns are merged from the excel, their mapping is in map-extra.yaml.
 
-``//virus-prep.py:
+``//virus-prep.py: #py
 hi
 ``import``
 ``run``
@@ -14,7 +14,7 @@ hi
 
 read the data. for all-plates-updated there are four columns in the excel that are not in the csv (plate, primers, PercentageCovered, totalCovered), so we also read the excel.
 
-``/run:
+``/run: #py
 csvin = sys.argv[1]
 df = pd.read_csv(csvin, delimiter=";")
 dfexcel = pd.read_excel(sys.argv[2])
@@ -22,27 +22,27 @@ dfexcel = pd.read_excel(sys.argv[2])
 
 read the name of the file we write the fhirable csv into
 
-``
+`` #py
 outfile = sys.argv[3]
 ``
 
 import sys and pandas.
 
-``/import:
+``/import: #py
 import sys
 import pandas as pd
 ``
 
 there is no date column, take the date from the file names.
 
-``/run
+``/run #py
 df["effective_date_time"] = "23.09.2024"
 #print("effective date time col: " + df["effective_date_time"])
 ``
 
 do the standard prep steps.
 
-``
+`` #py
 df = stdprep(df, mapyaml="mapping.yaml", sender="NUM_FRA", method="NUM_VIR_METADATA", datefmt="%d.%m.%Y", methodname_prefix="VIR")
 ``
 
@@ -52,7 +52,7 @@ do this after stdprep, so stdprep doesn't throw the merged columns out again whe
 
 select which columns to take from the excel, cause some seem to be scrambled, we don't wanna take them.
 
-``
+`` #py
 if re.search(r"All_plates_updated", csvin):
   fromexcel = dfexcel[["seqName", "plate", "primers", "PercentageCovered", "totalCovered"]]
   with open("map-extra.yaml", "r") as file:
@@ -63,7 +63,7 @@ if re.search(r"All_plates_updated", csvin):
 
 import what's needed.
 
-``/import
+``/import #py
 import re
 import yaml
 from preplib import stdprep, rename
@@ -75,14 +75,14 @@ from dbcq import dbcq
 
 traction takes a db connection that we can use later for querying.
 
-``/run
+``/run #py
 db = dbcq("num_prod")
 tr = traction(db)
 ``
 
 check the sampleids. 
 
-``/run
+``/run #py
 out = ""
 for i, row in df.iterrows():
   sampleid = df.at[i, "id_SAMPLEID"]
@@ -103,7 +103,7 @@ centraxx_sampleidcontainer:sidc {
 
 dq muesste auf jeden fall die scid und scidext aliasse in output namen aufnehmen.
 
-``
+`` #py
     tryext = tr.sample(extsampleid=sampleid)
     if not tryext is None:
       ``set external``
@@ -113,7 +113,7 @@ dq muesste auf jeden fall die scid und scidext aliasse in output namen aufnehmen
 
 wenn es die externe id gibt, setze sie.
 
-``./set external
+``./set external: #py
       query = """select sidc.psn as 'sampleidcontainer.psn' from centraxx_sampleidcontainer sidc
   join centraxx_sampleidcontainer sidcext on sidcext.sample = sidc.sample
   where sidcext.psn = ? and sidcext.idcontainertype = 7 and sidc.idcontainertype = 6 """
@@ -125,7 +125,7 @@ wenn es die externe id gibt, setze sie.
 
 sonst checke ob fuehrende null fehlt, sonst drop.
 
-``../missing zero or drop
+``../missing zero or drop: #py
       # try missing zero
       res = db.qfa("select psn from centraxx_sampleidcontainer sidc where sidc.idcontainertype = 6 and sidc.psn='0"+str(sampleid)+"'")
 
@@ -142,7 +142,7 @@ sonst checke ob fuehrende null fehlt, sonst drop.
 
 write the non-findable sampleids to file.
 
-``/run
+``/run #py
 f = open("not-in-db.txt", "w")
 f.write(out)
 print("samples not in db written to not-in-db.txt")
@@ -152,7 +152,7 @@ print("samples not in db written to not-in-db.txt")
 
 pull in the patients for the samples.
 
-``
+`` #py
 for i, row in df.iterrows():
   sampleid = df.at[i, "id_SAMPLEID"]
   # print("sampleid: " + sampleid)
@@ -165,7 +165,7 @@ for i, row in df.iterrows():
 
 write the out csv file.
 
-``
+`` #py
 df.to_csv(path_or_buf=outfile, sep=";" )
 print(f"output written to {outfile}")
 ``

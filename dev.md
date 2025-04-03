@@ -28,3 +28,7 @@ that did something.
 maybe stick to js files and say "checkJs": false      https://stackoverflow.com/a/54571297
 
 add `// @ts-ignore` at top of file to ignore ts checks
+
+try codetext.ts:
+
+$ node cli.js try/virus-prep.ct

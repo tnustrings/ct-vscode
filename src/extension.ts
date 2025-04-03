@@ -1,6 +1,6 @@
 // @ts-ignore
 import * as vscode from 'vscode'
-import * as codetext from "./codetext"
+import * as ct from "./codetext"
 import * as path from 'path'
 export function activate(context: vscode.ExtensionContext) {
   //console.log("hi, the codetext extension is now active")
@@ -19,7 +19,13 @@ export function activate(context: vscode.ExtensionContext) {
       console.log("dir: " + dir)
   
       // run codetext and write the generated files into dir
-      codetext.ctwrite(text, dir)
+      ct.ctwrite(text, dir)
+  
+      // inform about the generated files
+      // todo only do this if there were no errors?
+      var rootnames = ct.rootnames()
+      vscode.window.showInformationMessage("generated " + rootnames.join(", ") + ".")
+  
     }
   )
   context.subscriptions.push(assemble)
@@ -37,10 +43,10 @@ export function activate(context: vscode.ExtensionContext) {
       // console.log("text: " + text)
   
       // run codetext on the text 
-      codetext.ct(text)
+      ct.ct(text)
   
       // get the names of the files assembled by codetext
-      var rootnames = codetext.rootnames()
+      var rootnames = ct.rootnames()
   
       // in which file should we go to line?
       var filepick
@@ -48,7 +54,10 @@ export function activate(context: vscode.ExtensionContext) {
       // if more than one rootnames, pick which one
       if (rootnames.length > 1) {
           // todo msg 'go to line from file' or so
-          filepick = await vscode.window.showQuickPick(rootnames)
+          filepick = await vscode.window.showQuickPick(
+  	  rootnames,
+  	  { placeHolder: "go to line in" }
+  	)
       } else if (rootnames.length == 1) {
           // only one rootname, take this one
           filepick = rootnames[0]
@@ -61,15 +70,15 @@ export function activate(context: vscode.ExtensionContext) {
   
       // get the line number in the generated file
       var genline = await vscode.window.showInputBox({
-        placeHolder: "go to line" //,
+        placeHolder: "go to line in " + filepick //,
         //prompt: "option a\noptionb"
       })
       var genlineint = parseInt(genline)
       // console.log("genline: " + genlineint)
   
       // get genline's position in the ct file
-      //var ctline = codetext.ctlinenr[filepick][genlineint]
-      var ctline = codetext.ctlinenumber(filepick, genlineint)
+      //var ctline = ct.ctlinenr[filepick][genlineint]
+      var ctline = ct.ctlinenumber(filepick, genlineint)
   
       // make this a function jump_to_line(ctline)?
       // move the cursor. somehow we have to subtract one to get to the given line. why?
