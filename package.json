@@ -4,6 +4,7 @@
     "description": "codetext for vs code",
     "version": "0.0.3",
     "publisher": "tnustrings",
+    "repository": "https://github.com/tnustrings/ct-vscode",
     "engines": {
 	"vscode": "^1.98.0"
     },
