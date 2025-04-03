@@ -15,7 +15,13 @@ var ctlinenr = {}
 
 // ctlinenumber map line numbers of a generated file to the original line numbers in ct file
 export function ctlinenumber(rootname: string, genlinenr: number) {
-    return ctlinenr[rootname][genlinenr]
+    // rootname not there
+    if (!(rootname in ctlinenr)) {
+      return [-1, "there is no file named " + rootname]
+    } else if (!(genlinenr in ctlinenr[rootname])) { // linenumber not there
+      return [-1, rootname + " doesn't have line " + genlinenr]
+    }
+    return [ctlinenr[rootname][genlinenr], null]
 }
 
 

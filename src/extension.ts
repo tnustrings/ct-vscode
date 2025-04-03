@@ -2,6 +2,9 @@
 import * as vscode from 'vscode'
 import * as ct from "./ct"
 import * as path from 'path'
+
+var ppo = {} // dict of string-arrays
+
 export function activate(context: vscode.ExtensionContext) {
   //console.log("hi, the codetext extension is now active")
   const assemble = vscode.commands.registerCommand(
@@ -48,12 +51,16 @@ export function activate(context: vscode.ExtensionContext) {
       // get the names of the files assembled by codetext
       var rootnames = ct.rootnames()
   
+      // sort the rootnames by the previous pick order
+      // get the file name for that
+      var filename = editor.document.fileName
+      sortbyppo(rootnames, ppo[filename])
+  
       // in which file should we go to line?
       var filepick
       
       // if more than one rootnames, pick which one
       if (rootnames.length > 1) {
-          // todo msg 'go to line from file' or so
           filepick = await vscode.window.showQuickPick(
   	  rootnames,
   	  { placeHolder: "go to line in" }
@@ -66,11 +73,17 @@ export function activate(context: vscode.ExtensionContext) {
           return
       }
   
+      // put the picked file first. there seems to be no option to get the picked index, so pass the string
+      putfirst(rootnames, filepick)
+  
+      // set the previous pick order to the rootnames with the picked item on top
+      ppo[filename] = rootnames
+  
       // console.log("pick: " + filepick)
   
       // get the line number in the generated file
       var genline = await vscode.window.showInputBox({
-        placeHolder: "go to line in " + filepick //,
+        placeHolder: "line number in " + filepick //,
         //prompt: "option a\noptionb"
       })
       var genlineint = parseInt(genline)
@@ -78,7 +91,12 @@ export function activate(context: vscode.ExtensionContext) {
   
       // get genline's position in the ct file
       //var ctline = ct.ctlinenr[filepick][genlineint]
-      var ctline = ct.ctlinenumber(filepick, genlineint)
+      var [ctline, errmsg] = ct.ctlinenumber(filepick, genlineint)
+  
+      if (ctline == -1) {
+        vscode.window.showInformationMessage(errmsg)
+        return
+      }
   
       // go to the line
       jumptoline(editor, ctline)
@@ -152,6 +170,40 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // helper functions
+function sortbyppo(names: string[], ppo: string[]) {
+  if (!ppo) { return }
+  var idx = {}
+  for (var i = 0; i < ppo.length; i++) {
+    idx[ppo[i]] = i
+  }
+  names.sort(function(a: string, b: string) {
+    // both a and b are in the index
+    if ((a in idx) && (b in idx)) {
+      // which is first in the index?
+      if (idx[a] < idx[b]) { return -1 } // a first
+      else if (idx[a] > idx[b]) { return +1 } // b first
+      else { return 0 } // shouldn't happen
+    } else if (a in idx) { // only a is in the index
+      return -1 // a first
+    } else if (b in idx) { // only b is in the index
+      return +1 // b first
+    } else {
+      // both a and b are not in the index, keep order
+      return -1
+    }
+  })
+}
+function putfirst(a: string[], s: string) {
+  var i_s = -1
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] == s) { i_s = i; break }
+  }
+  for (var i = i_s; i > 0; i--) {
+    var tmp = a[i]
+    a[i] = a[i-1]
+    a[i-1] = tmp
+  }
+}
 function currentline(editor: vscode.TextEditor) {
   // no active cursor?
   if (editor.selections.length < 1) {
