@@ -6,7 +6,7 @@ codetext lets you embed code in text like images or figures floating
 in a document. it's a bit like jupyter notebooks with the addition
 that code chunks are named and you can use the names to nest chunks.
 
-for a codetext example, see [./try/foo.ct](`foo.ct`).
+for a codetext example, see [`foo.ct`](./try/foo.ct).
 
 ct for vscode provides the following commands:
 
@@ -15,5 +15,5 @@ ct for vscode provides the following commands:
 
 ## dev
 
-for development, see [./dev.md](`dev.md`).
+for development, see [`dev.md`](./dev.md).
 
