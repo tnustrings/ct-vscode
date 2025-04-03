@@ -30,6 +30,52 @@ export function rootnames() {
     return Object.keys(roots)
 }
 
+// the node at a ct line (if there is one)
+var nodeatctline = {}
+
+// gotoparent gives the ctlinenr where a child is referenced in its parent
+export function gotoparent(ctline: number) {
+  // get the node from where we start
+  if (!(ctline in nodeatctline)) {
+    return [-1, "there is no codechunk at this line"]
+  }
+  var child = nodeatctline[ctline]
+
+  // get the child's parent
+  var parent = child.cd[".."]
+  if (parent == child) {
+    return [-1, "this code-chunk has no parent"]
+  }
+
+  // get the child's line in parent
+  var lip = child.lineinparent
+
+  // map from the line in parent to the line in ct
+  return [parent.ctlinenr[lip], null]
+}
+
+// gotochild gives the ctlinenr of the first line of a parent's child
+export function gotochild(ctline: number) {
+  // get the node from where we start
+  if (!(ctline in nodeatctline)) {
+    return [-1, "there is no codechunk at this line"]
+  }
+  var parent = nodeatctline[ctline]
+
+  // get the line relative to the parent
+  var p_start_ctline = parent.ctlinenr[0]
+  var lip = ctline - p_start_ctline
+
+  // get the child
+  if (!(lip in parent.childatline)) {
+    return [-1, "try going to a line that references a child node"]
+  }
+  var child = parent.childatline[lip]
+  
+  // return the ct start line of the child
+  return [child.ctlinenr[0], null]
+}
+
 // ctwrite runs codetext and writes the assembled files
 export function ctwrite(text: string, dir: string) {
 
@@ -61,6 +107,7 @@ export function ct(text: string) {
     ctlinenr = {}
     currentnode = null
     openghost = null
+    nodeatctline = {}
 
     var lines = text.split("\n")
 
@@ -195,17 +242,27 @@ class Node {
 	} else {
             this.cd[".."] = parent
 	}
+	
         //self.parent = parent
         //this.text = ""
+	
 	// keep the text as lines, cause splitting on '\n' on empty text gives length 1 (length 0 is wanted)
 	this.lines = []
+	
 	// the ghost children. why more than one?
         this.ghostchilds = []
+	
 	// for each text line, ctlinenr holds its original line nr in ct file
 	this.ctlinenr = {}
+	
         // has this node been declared by a colon ':'
         this.hasbeendeclared = false
 
+	// at which line of the parent is the child?
+	this.lineinparent = null
+
+	// at these lines, there are children { int -> Node }
+	this.childatline = {}
     }
         
     // ls lists the named childs
@@ -378,6 +435,9 @@ function concatcreatechilds(node: Node, text: string, ctlinenr: number) {
     var N = node.lines.length
     for (var i = 0; i < newlines.length; i++) {
 	node.ctlinenr[N+i] = ctlinenr + i
+
+	// map from the ct line to the node
+	nodeatctline[ctlinenr + i] = node
     }
 
     //node.text += text
@@ -388,8 +448,11 @@ function concatcreatechilds(node: Node, text: string, ctlinenr: number) {
 	if (!isname(line)) { continue }
 
 	// why do we create the children when concating text? maybe because here we know where childs of ghost nodes end up in the tree. """
-	// print("#getname 2")
+
 	var name = getname(line)
+
+	// the newly created child
+	var child = null 
 	if (name == ".") {// ghost child
             // if we're not at the first ghost chunk here
             if (openghost != null) {
@@ -398,13 +461,20 @@ function concatcreatechilds(node: Node, text: string, ctlinenr: number) {
 	    }
             // create the ghost chunk
             openghost = createadd(GHOST, node)
+	    child = openghost
 	} else {  // we're at a name
 	    // if the name is not yet in child nodes
             if (!(name in node.ls())) {
 		// create a new child node with the name and add it
-		createadd(name, node)
+		child = createadd(name, node)
 	    }
 	}
+
+	// at which line of the parent is the child?
+	child.lineinparent = i+N
+
+	// at this line, the parent has a child
+	node.childatline[i+N] = child
     }
 }
 

@@ -10,8 +10,10 @@ for a codetext example, see [`foo.ct`](https://github.com/tnustrings/ct-vscode/b
 
 ct for vscode provides the following commands:
 
-`ct: assemble (ctrl-alt-c)`: assemble code\
+`ct: assemble (ctrl-alt-a)`: assemble code\
 `ct: go to line (ctrl-alt-g)`: given a line from a generated file, go to its line in the source .ct file\
+`ct: go to parent (ctrl-alt-p)`: go to parent code-chunk\
+`ct: go to child (ctrl-alt-c)`: go to child code-chunk
 
 ## dev
 

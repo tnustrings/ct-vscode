@@ -80,14 +80,92 @@ export function activate(context: vscode.ExtensionContext) {
       //var ctline = ct.ctlinenr[filepick][genlineint]
       var ctline = ct.ctlinenumber(filepick, genlineint)
   
-      // make this a function jump_to_line(ctline)?
-      // move the cursor. somehow we have to subtract one to get to the given line. why?
-      editor.selections = [new vscode.Selection(ctline-1, 0, ctline-1, 0)]
-      // scroll the cursor into view
-      // what's the difference between a selection and range?
-      var range = new vscode.Range(ctline-1, 0, ctline-1, 0)
-      editor.revealRange(range)
+      // go to the line
+      jumptoline(editor, ctline)
     })
   
     context.subscriptions.push(go_to_line)
+  const go_to_child = vscode.commands.registerCommand(
+    'ct.go_to_child', async () => {
+  
+      // get the editor
+      var editor = vscode.window.activeTextEditor
+  
+      var ctline = currentline(editor)
+  
+      if (ctline == -1) { return } // no cursor in editor
+      
+      // display a message box
+      // vscode.window.showInformationMessage("current line: " + ctline)
+  
+      // get the text
+      var text = editor.document.getText()
+  
+      // update codetext
+      ct.ct(text)
+  
+      // get the line to jump to
+      var [newline, errmsg] = ct.gotochild(ctline)
+  
+      // there was an error
+      if (newline == -1) {
+        vscode.window.showInformationMessage(errmsg)
+        return
+      }
+  
+      // go to the line
+      jumptoline(editor, newline)
+    }
+  )
+  const go_to_parent = vscode.commands.registerCommand(
+    'ct.go_to_parent', async () => {
+  
+      // get the editor
+      var editor = vscode.window.activeTextEditor
+  
+      var ctline = currentline(editor)
+  
+      if (ctline == -1) { return } // no cursor in editor
+      
+      // display a message box
+      // vscode.window.showInformationMessage("current line: " + ctline)
+  
+      // get the text
+      var text = editor.document.getText()
+  
+      // update codetext
+      ct.ct(text)
+  
+      // get the line to jump to
+      var [newline, errmsg] = ct.gotoparent(ctline)
+  
+      // there was an error
+      if (newline == -1) {
+        vscode.window.showInformationMessage(errmsg)
+        return
+      }
+  
+      // go to the line
+      jumptoline(editor, newline)
+    }
+  )
+}
+
+// helper functions
+function currentline(editor: vscode.TextEditor) {
+  // no active cursor?
+  if (editor.selections.length < 1) {
+    return -1
+  }
+  // start is a position, it has a line and a character
+  // add 1, cause lines are zero-indexed
+  return editor.selections[0].start.line + 1
+}
+function jumptoline(editor: vscode.TextEditor, line: number) {
+  // move the cursor. somehow we have to subtract one to get to the given line. why?
+  editor.selections = [new vscode.Selection(line-1, 0, line-1, 0)]
+  // scroll the cursor into view
+  // what's the difference between a selection and range?
+  var range = new vscode.Range(line-1, 0, line-1, 0)
+  editor.revealRange(range)
 }
