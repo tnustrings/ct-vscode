@@ -3,7 +3,7 @@
 install npm packages:
 
 ```
-npm install
+$ npm install
 ```
 
 open as folder in vscode, then ctrl-shift-p > debug: start debugging.
@@ -11,7 +11,14 @@ open as folder in vscode, then ctrl-shift-p > debug: start debugging.
 compile on command line:
 
 ```
-npm run compile
+$ npm run compile
+```
+
+package or publish with vsce:
+
+```
+$ vsce package
+$ vsce publish
 ```
 
 ## notes
