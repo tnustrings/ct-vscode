@@ -1,6 +1,6 @@
 // @ts-ignore
 import * as vscode from 'vscode'
-import * as ct from "./codetext"
+import * as ct from "./ct"
 import * as path from 'path'
 export function activate(context: vscode.ExtensionContext) {
   //console.log("hi, the codetext extension is now active")
