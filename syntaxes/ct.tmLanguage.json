@@ -123,8 +123,8 @@
                 },
                 {
                     "name": "meta.block.source.ts.org",
-                    "begin": "(?i)(?:^|\\G)(?:\\s*)(#\\+BEGIN_SRC)\\s+(ts|typescript)\\b\\s*(.*)$",
-                    "end": "(?i)(?:^|\\G)(?:\\s*)(#\\+END_SRC)\\s*$",
+                    "begin": "^``.* #(ts|typescript)$",
+                    "end": "^``$",
                     "beginCaptures": {
                         "1": {
                             "name": "keyword.control.block.org"
@@ -144,7 +144,7 @@
                     "patterns": [
                         {
                             "begin": "(^|\\G)(\\s*)(.*)",
-                            "while": "(?i)(^|\\G)(?!\\s*#\\+END_SRC\\s*)",
+                            "while": "(?i)(^|\\G)(?!``\\s*)",
                             "contentName": "meta.embedded.block.ts",
                             "patterns": [
                                 {
@@ -717,8 +717,8 @@
                 },
                 {
                     "name": "meta.block.source.c.org",
-                    "begin": "(?i)(?:^|\\G)(?:\\s*)(#\\+BEGIN_SRC)\\s+(c|h)\\b\\s*(.*)$",
-                    "end": "(?i)(?:^|\\G)(?:\\s*)(#\\+END_SRC)\\s*$",
+                    "begin": "^``.* #(c|h)$",
+                    "end": "^``$",
                     "beginCaptures": {
                         "1": {
                             "name": "keyword.control.block.org"
@@ -738,7 +738,7 @@
                     "patterns": [
                         {
                             "begin": "(^|\\G)(\\s*)(.*)",
-                            "while": "(?i)(^|\\G)(?!\\s*#\\+END_SRC\\s*)",
+                            "while": "(?i)(^|\\G)(?!``\\s*)",
                             "contentName": "meta.embedded.block.c",
                             "patterns": [
                                 {
@@ -882,8 +882,8 @@
                 },
                 {
                     "name": "meta.block.source.go.org",
-                    "begin": "(?i)(?:^|\\G)(?:\\s*)(#\\+BEGIN_SRC)\\s+(go|golang)\\b\\s*(.*)$",
-                    "end": "(?i)(?:^|\\G)(?:\\s*)(#\\+END_SRC)\\s*$",
+                    "begin": "^``.* #(go|golang)$",
+                    "end": "^``$",
                     "beginCaptures": {
                         "1": {
                             "name": "keyword.control.block.org"
@@ -903,7 +903,7 @@
                     "patterns": [
                         {
                             "begin": "(^|\\G)(\\s*)(.*)",
-                            "while": "(?i)(^|\\G)(?!\\s*#\\+END_SRC\\s*)",
+                            "while": "(?i)(^|\\G)(?!``\\s*)",
                             "contentName": "meta.embedded.block.go",
                             "patterns": [
                                 {
@@ -1476,8 +1476,10 @@
                 },
                 {
                     "name": "meta.block.source.yaml.org",
-                    "begin": "(?i)(?:^|\\G)(?:\\s*)(#\\+BEGIN_SRC)\\s+(yaml|yml)\\b\\s*(.*)$",
-                    "end": "(?i)(?:^|\\G)(?:\\s*)(#\\+END_SRC)\\s*$",
+
+                    "begin": "^``.* #(yaml)$",
+                    "end": "^``$",
+
                     "beginCaptures": {
                         "1": {
                             "name": "keyword.control.block.org"
@@ -1497,7 +1499,7 @@
                     "patterns": [
                         {
                             "begin": "(^|\\G)(\\s*)(.*)",
-                            "while": "(?i)(^|\\G)(?!\\s*#\\+END_SRC\\s*)",
+                            "while": "(?i)(^|\\G)(?!``\\s*)",
                             "contentName": "meta.embedded.block.yaml",
                             "patterns": [
                                 {
@@ -1509,8 +1511,8 @@
                 },
                 {
                     "name": "meta.block.source.json.org",
-                    "begin": "(?i)(?:^|\\G)(?:\\s*)(#\\+BEGIN_SRC)\\s+(json)\\b\\s*(.*)$",
-                    "end": "(?i)(?:^|\\G)(?:\\s*)(#\\+END_SRC)\\s*$",
+                    "begin": "^``.* #(json)$",
+                    "end": "^``$",
                     "beginCaptures": {
                         "1": {
                             "name": "keyword.control.block.org"
@@ -1530,7 +1532,7 @@
                     "patterns": [
                         {
                             "begin": "(^|\\G)(\\s*)(.*)",
-                            "while": "(?i)(^|\\G)(?!\\s*#\\+END_SRC\\s*)",
+                            "while": "(?i)(^|\\G)(?!``\\s*)",
                             "contentName": "meta.embedded.block.json",
                             "patterns": [
                                 {

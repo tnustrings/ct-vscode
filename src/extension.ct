@@ -1,6 +1,6 @@
 the ct extension
 
-``//extension.ts:
+``//extension.ts: #ts
 // @ts-ignore
 ``import``
 
@@ -17,7 +17,7 @@ the ct extension
 
 activate is called the very first time the command is executed.
 
-``/activate:
+``/activate: #ts
 export function activate(context: vscode.ExtensionContext) {
   ``log hello``
   ``assemble``
@@ -29,7 +29,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 output diagnostic info with console.log and errors with console.error.
 
-``./log hello:
+``./log hello: #ts
 //console.log("hi, the codetext extension is now active")
 ``
 
@@ -37,7 +37,7 @@ output diagnostic info with console.log and errors with console.error.
 
 the assemble command generates the files from codetext.
 
-``../assemble:
+``../assemble: #ts
 const assemble = vscode.commands.registerCommand(
   'ct.assemble', async () => {
     // get the editor
@@ -67,7 +67,7 @@ context.subscriptions.push(assemble)
 
 assemble needs vscode, codetext and path.
 
-``/import:
+``/import: #ts
 import * as vscode from 'vscode'
 import * as ct from "./ct"
 import * as path from 'path'
@@ -79,11 +79,11 @@ the go to line command maps from line number in generated file to line number in
 
 to sort the root names by most recently picked, we keep for each open ct file a previous-pick-order, ppo.
 
-``/vars:
+``/vars: #ts
 var ppo = {} // dict of string-arrays
 ``
 
-``/activate/go to line:
+``/activate/go to line: #ts
 const go_to_line = vscode.commands.registerCommand(
   'ct.go_to_line', async () => {
 
@@ -159,7 +159,7 @@ const go_to_line = vscode.commands.registerCommand(
 
 sortbyppo sorts rootnames by the previous pick order.
 
-``/sortbyppo:
+``/sortbyppo: #ts
 function sortbyppo(names: string[], ppo: string[]) {
   ``.``
 }
@@ -167,13 +167,13 @@ function sortbyppo(names: string[], ppo: string[]) {
 
 if ppo is undefined, return.
 
-``
+`` #ts
   if (!ppo) { return }
 ``
 
 map from the strings to their respective positions ppo.
 
-``
+`` #ts
   var idx = {}
   for (var i = 0; i < ppo.length; i++) {
     idx[ppo[i]] = i
@@ -182,7 +182,7 @@ map from the strings to their respective positions ppo.
 
 sort by the positions of the strings in ppo that are captured in idx.
 
-``
+`` #ts
   names.sort(function(a: string, b: string) {
     // both a and b are in the index
     if ((a in idx) && (b in idx)) {
@@ -205,7 +205,7 @@ sort by the positions of the strings in ppo that are captured in idx.
 
 putfirst puts s as first element in a
 
-``/putfirst:
+``/putfirst: #ts
 function putfirst(a: string[], s: string) {
   ``.``
 }
@@ -213,7 +213,7 @@ function putfirst(a: string[], s: string) {
 
 find the index of s in a.
 
-``
+`` #ts
   var i_s = -1
   for (var i = 0; i < a.length; i++) {
     if (a[i] == s) { i_s = i; break }
@@ -223,7 +223,7 @@ find the index of s in a.
 pull element at i_s to the front by switching it with each of its left
 neighbors.
 
-``
+`` #ts
   for (var i = i_s; i > 0; i--) {
     var tmp = a[i]
     a[i] = a[i-1]
@@ -235,7 +235,7 @@ neighbors.
 
 go to parent code chunk.
 
-``/activate/go to parent:
+``/activate/go to parent: #ts
 const go_to_parent = vscode.commands.registerCommand(
   'ct.go_to_parent', async () => {
 
@@ -274,7 +274,7 @@ const go_to_parent = vscode.commands.registerCommand(
 
 go to child code chunk.
 
-``/activate/go to child:
+``/activate/go to child: #ts
 const go_to_child = vscode.commands.registerCommand(
   'ct.go_to_child', async () => {
 
@@ -313,7 +313,7 @@ const go_to_child = vscode.commands.registerCommand(
 
 currentline gives the current line, starting from 1
 
-``/currentline:
+``/currentline: #ts
 function currentline(editor: vscode.TextEditor) {
   // no active cursor?
   if (editor.selections.length < 1) {
@@ -327,7 +327,7 @@ function currentline(editor: vscode.TextEditor) {
 
 jumptoline jumps to line.
 
-``/jumptoline:
+``/jumptoline: #ts
 function jumptoline(editor: vscode.TextEditor, line: number) {
   // move the cursor. somehow we have to subtract one to get to the given line. why?
   editor.selections = [new vscode.Selection(line-1, 0, line-1, 0)]
