@@ -28,3 +28,8 @@ that did something.
 maybe stick to js files and say "checkJs": false      https://stackoverflow.com/a/54571297
 
 add `// @ts-ignore` at top of file to ignore ts checks
+
+## up next
+
+maybe it could offer to indent
+code-chunks based on their parent chunk.
