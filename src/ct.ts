@@ -1,8 +1,7 @@
 // @ts-nocheck
 
-// codetext.ts implements codetext in ts
-
-// implemented after tangle.py
+// ct.ts implements codetext in ts
+// it tries to stick closely to the ct implementation of https://github.com/tnustrings/codetext/blob/main/ct/ct.py
 
 import * as fs from "fs"
 
@@ -16,7 +15,13 @@ var ctlinenr = {}
 
 // ctlinenumber map line numbers of a generated file to the original line numbers in ct file
 export function ctlinenumber(rootname: string, genlinenr: number) {
-    return ctlinenr[rootname][genlinenr]
+    // rootname not there
+    if (!(rootname in ctlinenr)) {
+      return [-1, "there is no file named " + rootname]
+    } else if (!(genlinenr in ctlinenr[rootname])) { // linenumber not there
+      return [-1, rootname + " doesn't have line " + genlinenr]
+    }
+    return [ctlinenr[rootname][genlinenr], null]
 }
 
 
@@ -31,6 +36,52 @@ export function rootnames() {
     return Object.keys(roots)
 }
 
+// the node at a ct line (if there is one)
+var nodeatctline = {}
+
+// gotoparent gives the ctlinenr where a child is referenced in its parent
+export function gotoparent(ctline: number) {
+  // get the node from where we start
+  if (!(ctline in nodeatctline)) {
+    return [-1, "there is no codechunk at this line"]
+  }
+  var child = nodeatctline[ctline]
+
+  // get the child's parent
+  var parent = child.cd[".."]
+  if (parent == child) {
+    return [-1, "this code-chunk has no parent"]
+  }
+
+  // get the child's line in parent
+  var lip = child.lineinparent
+
+  // map from the line in parent to the line in ct
+  return [parent.ctlinenr[lip], null]
+}
+
+// gotochild gives the ctlinenr of the first line of a parent's child
+export function gotochild(ctline: number) {
+  // get the node from where we start
+  if (!(ctline in nodeatctline)) {
+    return [-1, "there is no codechunk at this line"]
+  }
+  var parent = nodeatctline[ctline]
+
+  // get the line relative to the parent
+  var p_start_ctline = parent.ctlinenr[0]
+  var lip = ctline - p_start_ctline
+
+  // get the child
+  if (!(lip in parent.childatline)) {
+    return [-1, "try going to a line that references a child node"]
+  }
+  var child = parent.childatline[lip]
+  
+  // return the ct start line of the child
+  return [child.ctlinenr[0], null]
+}
+
 // ctwrite runs codetext and writes the assembled files
 export function ctwrite(text: string, dir: string) {
 
@@ -39,11 +90,14 @@ export function ctwrite(text: string, dir: string) {
 
     // write the assembled text for each root
     for (var filename of Object.keys(roots)) {
-        console.log(roottext[filename])
+        // console.log(roottext[filename])
 	fs.writeFile(dir + "/" + filename,
 	  roottext[filename],
 	  { flag: "w" }, // apparently needed to overwrite?
-	  (err) => err && console.error(err))
+	  function (err) {
+	    // is it good to throw the error?
+	    if (err) { throw err; console.error(err) }
+	  })
     }
 }
 
@@ -59,80 +113,33 @@ export function ct(text: string) {
     ctlinenr = {}
     currentnode = null
     openghost = null
+    nodeatctline = {}
 
     var lines = text.split("\n")
 
-    for (line of lines) {
-	// only look at declaration lines
-        //debug("line: " + line + " isdeclaration: " + isdeclaration(line))
-	//if (!isdeclaration(line)) { continue }
-        // tmp: test for root
-        if (!/^``\/\//.test(line)) { continue }
-	var name = getname(line)
-        //console.log("name: " + name)
 
-	// we're at a root if the name starts with a //
-        if (isroot(name)) {
-	    // maybe an alias follows the file name, seperated by ': '
-            var parts = name.split(": ")
+    // put in the chunks
 
-	    // remove leading slashes of root name
-            var filename = parts[0].replace(/^\/\//, "")
-            // take the first part of path as filename/alias. todo: split at //?
-            filename = filename.split("/")[0]
-
-            //console.log("filename: " + filename)
-
-	    // the root is already created? continue.
-
-	    if (filename in roots) {
-                continue
-	    }
-
-	    // is it an alias? continue. (this assumes aliases need to appear first in the text before they can be referenced.
-            if (filename in fileforalias) {
-                continue
-	    }
-
-	    roots[filename] = new Node(filename, null)
-
-/*	    if (parts.length > 1) {
-		alias = parts[1]
-		// alias already used for other file
-                if (alias in fileforalias && fileforalias[alias] != filename) {
-                    console.log("error: alias " + alias + " already references file " + fileforalias[alias])
-                    process.exit()
-		}
-		// alias it
-                fileforalias[alias] = filename
-	    }*/
-	} // end of isroot
-    } // end of line loop
-
-    // no files, exit
-    if (roots.length == 0) {
-	process.exit()
-    }
-
-    //console.log("roots: " + JSON.stringify(roots))
-
-    // now that we got the roots, we can start putting in the chunks. 
-
-    var inchunk = false // are we in a chunk
-    var chunk = "" // current chunk content
-    var path = null // current chunk name/path
-    var chunkstart = 0 // start line of chunk in ct file
+    // are we in a chunk
+    var inchunk = false
+    // current chunk content
+    var chunk = ""
+    // current chunk name/path
+    var path = null
+    // start line of chunk in ct file
+    var chunkstart = 0 
 
     // for (line of lines) {
     for (var i = 0; i < lines.length; i++) {
 	var line = lines[i]
+	//debug("line: '" + line + "'")
 	// we can't decide for sure whether we're opening or closing a chunk by looking at the backticks alone, cause an unnamed chunk is opend the same way it is closed.  so in addition, check that inchunk is false.
         if (/^``[^`]*/.test(line) && !inchunk) {
 	    // at the beginning of chunk remember its name
             inchunk = true
-            // print("#getname 4")
+	    // remember its path
             path = getname(line)
-            console.log("path: " + path)
+            // debug("path: " + path)
 	    // remember the start line of chunk in ct file
             // add two: one, for line numbers start with one not zero, another, for the chunk text starts in the next line, not this
 	    chunkstart = i+2
@@ -193,55 +200,36 @@ function isname(line: string) {
 // isdblticks says if the line consists of two ticks only (not considering programming-language hashtag)
 // this could either be a start line of an unnamed chunk or an end line of a chunk
 function isdblticks(line: string) {
-    return /^``(\s+#\w+)?$/.test(line)
+    var ret = /^``(\s+#\w+)?$/.test(line)
+    //debug(line)
+    //debug("isdblticks: '" + line + "':" + ret)
+    return ret
 }
 
 
-// getname gets the chunkname from a declaration or in-chunk line
+// getname gets the chunkname from a chunk-opening or in-chunk reference
 function getname(line: string) {
+    // remove the leading ticks (openings and references)
     var name = line.replace(/^[^`]*``/, "") // replace only first
+    // remove the trailing ticks (references only)
     name = name.replace(/``.*/, "") // chunk declarations do not have this
+    // remove the newline (openings only)
     name = name.replace(/\n$/, "")
-    // replace programming language hash tag
-    name = name.replace(/\s*\#\w+$/, "")
+    // replace programming language hash tag if there (openings only)
+    name = name.replace(/\s+\#\w+$/, "")
+
+    // don't remove the declaration colon, we need it in put()
+    
     // debug(f"getname({line}): '{name}'")
-    // tmp: replace declaration colon todo remove
-    name = name.replace(/:\s*$/, "")
 
     return name
 }
 
-// isroot says whether the name is a root
-function isroot(name: string) {
+// fromroot says whether the name starts from a root
+function fromroot(name: string) {
     return /^\/\//.test(name)
 }
 
-// getroot returns root referenced by path and chops off root in path, except if there's only one un-aliased root.
-function getroot(path: string) {
-    // remove the leading // of root path
-    path = path.replace(/^\/+/, "")
-    
-    // split the path
-    var p = path.split("/")
-
-    // allow splitting file paths and subsequent chunk paths by //?
-    // p = path.split("//")
-    // return (resolveroot(p[0]), p[1])
-
-    return [resolveroot(p[0]), p.slice(1).join("/")] // slice(i): all elements including and after index i
-}
-
-// resolveroot returns the rootnode for a filename or a alias
-function resolveroot(name: string) {
-    if (name in roots) {// name is a filename
-        return roots[name]
-    }
-    else if (name in fileforalias) { // name is an alias
-        return roots[fileforalias[name]]
-    }
-    console.log("error: root name '" + name + "' not found")
-    process.exit()
-}
 
 // node code-chunks are represented as nodes in a tree. """
 class Node {
@@ -260,14 +248,27 @@ class Node {
 	} else {
             this.cd[".."] = parent
 	}
+	
         //self.parent = parent
         //this.text = ""
+	
 	// keep the text as lines, cause splitting on '\n' on empty text gives length 1 (length 0 is wanted)
 	this.lines = []
+	
 	// the ghost children. why more than one?
         this.ghostchilds = []
+	
 	// for each text line, ctlinenr holds its original line nr in ct file
 	this.ctlinenr = {}
+	
+        // has this node been declared by a colon ':'
+        this.hasbeendeclared = false
+
+	// at which line of the parent is the child?
+	this.lineinparent = null
+
+	// at these lines, there are children { int -> Node }
+	this.childatline = {}
     }
         
     // ls lists the named childs
@@ -290,25 +291,52 @@ var openghost = null // if the last chunk opened a ghostnode, its this one
 function put(path: string, text: string, ctlinenr: number) {
 
     //debug("put: " + path)
+    //debug("put: " + text)
     
-    // if at file path, take only the path and chop off the alias
-    if (/^\/\//.test(path)) {
-        var parts = path.split(": ")
-        path = parts[0]
-    }
-
     // create a ghostnode if called for
     if ((path == "." || path == "") && openghost != null) {
         currentnode = openghost
+
+        // we enter the ghost node for the first time here, this implicitly declares it
+	currentnode.hasbeendeclared = true
         openghost = null // necessary?
+	
     } else {
+        // named node (new or append) or ghost node (append)
+
+	
 	// if the path would need a node to cling to but there isn't noe
-        if (currentnode == null && !isroot(path)) {
-            console.log("error: there's no file to attach '" + path + "' to, should it start with '//'?")
+        if (currentnode == null && !fromroot(path)) { 
+            console.log("error (line " + ctlinenr + "): there's no file to attach '" + path + "' to, should it start with '//'?")
             process.exit()
 	}
-	// go to node, if necessary create it along the way
-        currentnode = cdmk(currentnode, path)
+
+        // a colon at the path end indicates that this is a declaration
+        var isdeclaration = /:\s*$/.test(path)
+
+        // remove the colon from path
+        path = path.replace(/:\s*$/, "")
+
+        // find the node, if not there, create it
+        var node = cdmk(currentnode, path, ctlinenr)
+
+        // we'd like to check that a node needs to have been declared with : before text can be appended to it. for that, it doesn't help to check if a node is there, cause it might have already been created as a parent of a node. so we introduce a node.hasbeendeclared property.
+
+        if (isdeclaration && node.hasbeendeclared) {
+            console.log("error (line " + ctlinenr + "): chunk " + path + " has already been declared, maybe drop the colon ':'")
+            process.exit()
+	} else if (!isdeclaration && !node.hasbeendeclared) {
+            console.log("error (line " + ctlinenr + "): chunk " + path + " needs to be declared with ':' before text is appended to it")
+            process.exit()
+	}
+
+        // set that the node has been declared
+        if (isdeclaration) {
+            node.hasbeendeclared = true
+	}
+
+        // all should be well, we can set the node as the current node
+        currentnode = node
     }
 
     // append the text to node
@@ -318,22 +346,42 @@ function put(path: string, text: string, ctlinenr: number) {
 
 // cdmk walks the path from node and creates nodes if needed along the way.
 // it returns the node it ended up at
-function cdmk(node: Node, path: string) {
+function cdmk(node: Node, path: string, ctlinenr: number) {
 
-    // if file path // switch roots
+    // if our path is absolute (starting from a root), we can't just jump to the root, because when changing positions in the tree, we need to make sure that ghostnodes are exited properly.  cdone takes care of that, so we go backward node by node with cdone.  cdroot does this recursively.
+    if (/^\//.test(path)) {
+        // exit open ghost nodes along the way
+        node = cdroot(node, ctlinenr)
+    }
+
+    // if the path starts with // we might need to change roots.
     if (/^\/\//.test(path)) {
-        // we need to exit open ghost nodes. cdroot does this along the way.
-        cdroot(node)
-        var [node, path] = getroot(path)
+
+        // remove the leading // of root path
+        path = path.replace(/^\/+/, "") // todo check
+    
+        // split the path
+        var p = path.split("/")
+
+        // the first part of the path is the rootname
+        var rootname = p[0]
+
+        // root not there? create it
+        if (!(rootname in roots)) {
+            roots[rootname] = new Node(rootname, null)
+	}
+
+        // set the node to the root
+        node = roots[rootname]
+
+        // stitch the rest of the path together to walk it
+	path = p.slice(1).join("/") // slice(i): all elements including and after index i
     }
-    // if absolute path / go to root
-    else if (/^\//.test(path)) {
-        // we need to exit open ghost nodes. cdroot does this along the way.
-        node = cdroot(node)
-    }
+
+    // for absolute paths, we should be at the right root now
 
     // remove leading / of absolute path
-    path = path.replace(/^\/+/, "") // todo check
+    path = path.replace(/^\//, "")
 
     // follow the path
         
@@ -353,11 +401,11 @@ function cdmk(node: Node, path: string) {
             var res = []
 	    bfs(node, elem, res) // search elem in node's subtree
             if (res.length > 1) {
-		console.log("error: more than one nodes named " + elem + " in sub-tree of " + pwd(node))
+		console.log("error (line " + ctlinenr + "): more than one nodes named " + elem + " in sub-tree of " + pwd(node))
 		process.exit()
 	    }
 	    else if (res.length == 0) {
-		console.log("error: no nodes named " + elem + " in sub-tree of " + pwd(node))
+		console.log("error (line " + ctlinenr +"): no nodes named " + elem + " in sub-tree of " + pwd(node))
 		process.exit()
 	    }
 	    else {
@@ -368,7 +416,7 @@ function cdmk(node: Node, path: string) {
 
 	// standard:
         // walk one step
-        var walk = cdone(node, elem)
+        var walk = cdone(node, elem, ctlinenr)
         // if child not there, create it
         if (walk == null) {
             walk = createadd(elem, node)
@@ -393,32 +441,46 @@ function concatcreatechilds(node: Node, text: string, ctlinenr: number) {
     var N = node.lines.length
     for (var i = 0; i < newlines.length; i++) {
 	node.ctlinenr[N+i] = ctlinenr + i
+
+	// map from the ct line to the node
+	nodeatctline[ctlinenr + i] = node
     }
 
     //node.text += text
     node.lines.push(...newlines)
     
-    for (var line of newlines) {
+    for (var i = 0; i < newlines.length; i++) {
+        var line = newlines[i]
 	if (!isname(line)) { continue }
 
 	// why do we create the children when concating text? maybe because here we know where childs of ghost nodes end up in the tree. """
-	// print("#getname 2")
+
 	var name = getname(line)
+
+	// the newly created child
+	var child = null 
 	if (name == ".") {// ghost child
             // if we're not at the first ghost chunk here
             if (openghost != null) {
-		console.log("error: only one ghost child per text chunk allowed")
+		console.log("error (line " + ctlinenr + i + "): only one ghost child per text chunk allowed")
 		process.exit()
 	    }
             // create the ghost chunk
             openghost = createadd(GHOST, node)
+	    child = openghost
 	} else {  // we're at a name
 	    // if the name is not yet in child nodes
             if (!(name in node.ls())) {
 		// create a new child node with the name and add it
-		createadd(name, node)
+		child = createadd(name, node)
 	    }
 	}
+
+	// at which line of the parent is the child?
+	child.lineinparent = i+N
+
+	// at this line, the parent has a child
+	node.childatline[i+N] = child
     }
 }
 
@@ -440,10 +502,10 @@ function createadd(name: string, parent: Node) {
 	
         // if a node with this name is already child of last named parent, move it here
         if (parent.name == GHOST) {
-            var namedp = lastnamed(node)
-	    if (node.name in namedp.ls()) {
-		node = namedp.cd[name]
-                namedp.cd.delete(name)
+            var lnp = lastnamed(node)
+	    if (node.name in lnp.ls()) {
+		node = lnp.cd[name]
+                delete lnp.cd[name]
                 node.cd[".."] = parent
 	    }
 	}
@@ -481,9 +543,10 @@ function bfs(node: Node, name: string, out: Node[]) {
 }
 
 // cdone walks one step from node
-function cdone(node: Node, step: string) {
+function cdone(node: Node, step: string, ctlinenr: number) {
     if (step == GHOST) {
-        console.log("error: we may not walk into a ghost node via path")
+        // we may not walk into a ghost node via path
+        console.log("error (line " + ctlinenr + "): don't use string '{GHOST}' in paths")
         process.exit()
     }
     if (step == "") {
@@ -500,13 +563,13 @@ function cdone(node: Node, step: string) {
 }
 
 // cdroot cds back to root. side effect: ghosts are exited
-function cdroot(node: Node) {
+function cdroot(node: Node, ctlinenr: number) {
     if (node == null) { return null }
     if (node.cd[".."] == node) { // we're at a root
         return node
     }
     // continue via the parent
-    return cdroot(cdone(node, ".."))
+    return cdroot(cdone(node, "..", ctlinenr)) // it's probably not very necessary to pass the ctlinenr here, cause it only check's that the step isn't a '#' that would walk into a ghostnode
 }
 
 // exitghost moves ghost node's named children to last named parent. needs to be called after leaving a ghost node
@@ -529,7 +592,7 @@ function exitghost(ghost: Node) {
         var parent = ghost.cd[".."]
 	parent.cd[name] = child
         // delete child from ghost
-        ghost.cd.delete(name)
+        delete ghost.cd["name"]
     }
 }
 

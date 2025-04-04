@@ -3,7 +3,7 @@
 install npm packages:
 
 ```
-npm install
+$ npm install
 ```
 
 open as folder in vscode, then ctrl-shift-p > debug: start debugging.
@@ -11,7 +11,14 @@ open as folder in vscode, then ctrl-shift-p > debug: start debugging.
 compile on command line:
 
 ```
-npm run compile
+$ npm run compile
+```
+
+package or publish with vsce:
+
+```
+$ vsce package
+$ vsce publish
 ```
 
 ## notes
@@ -29,7 +36,14 @@ maybe stick to js files and say "checkJs": false      https://stackoverflow.com/
 
 add `// @ts-ignore` at top of file to ignore ts checks
 
+try codetext.ts:
+
+$ node cli.js try/virus-prep.ct
+
+
 ## up next
 
 maybe it could offer to indent
 code-chunks based on their parent chunk.
+
+
