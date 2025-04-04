@@ -24,7 +24,8 @@ print("hi " + name)
 ``
 ```
 
-codetext for vscode gives the following commands:
+codetext for vscode gives the following commands in the command
+palette (`ctrl-shift-p`):
 
 `ct: assemble (ctrl-alt-a)`: assemble code\
 `ct: go to line (ctrl-alt-g)`: given a line from a generated file, go to its line in the source .ct file\
