@@ -69,14 +69,14 @@ export function gotochild(ctline: number) {
   var parent = nodeatctline[ctline]
 
   // get the line relative to the parent
-  var p_start_ctline = parent.ctlinenr[0]
-  var lip = ctline - p_start_ctline
+  /*var p_start_ctline = parent.ctlinenr[0]
+  var lip = ctline - p_start_ctline #bug, cause there can be in-between chunk text. probably just use parent.childatctline[ctline] to get to the child*/
 
   // get the child
-  if (!(lip in parent.childatline)) {
+  if (!(i in parent.childatctline)) {
     return [-1, "try going to a line that references a child node"]
   }
-  var child = parent.childatline[lip]
+  var child = parent.childatctline[i]
   
   // return the ct start line of the child
   return [child.ctlinenr[0], null]
@@ -177,6 +177,8 @@ export function ct(text: string) {
         //debug("write " + filename)
 	//debug(out)
 	//fs.writeFile(filename, out, (err) => err && console.error(err))
+	
+	// save the generated text
 	roottext[filename] = out
     }
 }
@@ -267,8 +269,8 @@ class Node {
 	// at which line of the parent is the child?
 	this.lineinparent = null
 
-	// at these lines, there are children { int -> Node }
-	this.childatline = {}
+	// at these ct lines, there are children { int -> Node }
+	this.childatctline = {}
     }
         
     // ls lists the named childs
@@ -455,10 +457,10 @@ function concatcreatechilds(node: Node, text: string, ctlinenr: number) {
 
 	// why do we create the children when concating text? maybe because here we know where childs of ghost nodes end up in the tree. """
 
-	var name = getname(line)
-
 	// the newly created child
 	var child = null 
+
+	var name = getname(line)
 	if (name == ".") {// ghost child
             // if we're not at the first ghost chunk here
             if (openghost != null) {
@@ -480,7 +482,7 @@ function concatcreatechilds(node: Node, text: string, ctlinenr: number) {
 	child.lineinparent = i+N
 
 	// at this line, the parent has a child
-	node.childatline[i+N] = child
+	node.childatctline[ctlinenr + i] = child
     }
 }
 
