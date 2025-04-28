@@ -1,0 +1,11 @@
+# notes
+
+a popup with a registerHoverProvider?
+see https://stackoverflow.com/a/62825815
+
+
+# apr 28
+
+second window
+
+https://stackoverflow.com/questions/63069260/could-i-write-an-extension-to-open-an-editor-to-side-in-vs-code
