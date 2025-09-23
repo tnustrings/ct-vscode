@@ -37,32 +37,52 @@ output diagnostic info with console.log and errors with console.error.
 
 the assemble command generates the files from codetext.
 
-``../assemble: #ts
+``/activate/assemble: #ts
 const assemble = vscode.commands.registerCommand(
   'ct.assemble', async () => {
-    // get the editor
+  }
+)
+
+get the editor.
+
+``
     var editor = vscode.window.activeTextEditor
+``
 
-    // get the text
+get the text.
+
+``
     var text = editor.document.getText()
+``
 
-    // get the directory of the ct file
+get the directory of the ct file.
+
+``
     var p = editor.document.fileName
     var dir = path.dirname(p)
 
     console.log("dir: " + dir)
+``
 
-    // run codetext and write the generated files into dir
+run codetext and write the generated files into dir.
+
+``
     ct.ctwrite(text, dir)
+``
 
-    // inform about the generated files
-    // todo only do this if there were no errors?
+inform about the generated files.
+
+todo only do this if there were no errors?
+
+``
     var rootnames = ct.rootnames()
     vscode.window.showInformationMessage("generated " + rootnames.join(", ") + ".")
+``
 
-  }
-)
-context.subscriptions.push(assemble)
+push the assemble function.
+
+``/activate
+  context.subscriptions.push(assemble)
 ``
 
 assemble needs vscode, codetext and path.
@@ -75,9 +95,11 @@ import * as path from 'path'
 
 ## go to line
 
-the go to line command maps from line number in generated file to line number in ct file.
+the go to line command maps from line number in generated file to line
+number in ct file.
 
-to sort the root names by most recently picked, we keep for each open ct file a previous-pick-order, ppo.
+to sort the root names by most recently picked, we keep for each open
+ct file a previous-pick-order, ppo.
 
 ``/vars: #ts
 var ppo = {} // dict of string-arrays
@@ -86,62 +108,93 @@ var ppo = {} // dict of string-arrays
 ``/activate/go to line: #ts
 const go_to_line = vscode.commands.registerCommand(
   'ct.go_to_line', async () => {
+    ``.``
+  }
+)
 
     // display a message box
     // vscode.window.showInformationMessage("try jump")
 
-    // get the editor
-    var editor = vscode.window.activeTextEditor
+get the editor and the text.
 
-    // get the text
+``
+    var editor = vscode.window.activeTextEditor
     var text = editor.document.getText()
     // console.log("text: " + text)
+``
 
-    // run codetext on the text 
+run codetext on the text.
+
+``
     ct.ct(text)
+``
 
-    // get the names of the files assembled by codetext
+get the names of the files assembled by codetext.
+
+``
     var rootnames = ct.rootnames()
+``
 
-    // sort the rootnames by the previous pick order
-    // get the file name for that
+sort the rootnames by the previous pick order for this file.
+
+``
     var filename = editor.document.fileName
     sortbyppo(rootnames, ppo[filename])
+``
 
-    // in which file should we go to line?
+show a picker to chose from which of the generated files (rootnames)
+the line number is.
+
+if there is more than one rootnames, pick which one.
+
+``
     var filepick
-    
-    // if more than one rootnames, pick which one
     if (rootnames.length > 1) {
         filepick = await vscode.window.showQuickPick(
 	  rootnames,
 	  { placeHolder: "go to line in" }
 	)
-    } else if (rootnames.length == 1) {
-        // only one rootname, take this one
+    }
+``
+
+if there is only one rootname, take it. if no root name, don't continue.
+
+``
+    else if (rootnames.length == 1) {
         filepick = rootnames[0]
     } else {
-        // no root name, return
+        // no root name
         return
     }
+``
 
-    // put the picked file first. there seems to be no option to get the picked index, so pass the string
+put the picked file first in the rootnames list, and save it in ppo
+(previous-pick-order), so we can let it appear on top of the picker
+list next time.
+
+there seems to be no option to get which index was picked, so pass the
+string to putfirst().
+
+``
     putfirst(rootnames, filepick)
-
-    // set the previous pick order to the rootnames with the picked item on top
     ppo[filename] = rootnames
+    // console.log("pick: " + filepick)    
+``
 
-    // console.log("pick: " + filepick)
+get the line number in the generated file.
 
-    // get the line number in the generated file
+``
     var genline = await vscode.window.showInputBox({
       placeHolder: "line number in " + filepick //,
       //prompt: "option a\noptionb"
     })
     var genlineint = parseInt(genline)
     // console.log("genline: " + genlineint)
+``
 
-    // get genline's position in the ct file
+get genline's position in the ct file.
+
+``
     //var ctline = ct.ctlinenr[filepick][genlineint]
     var [ctline, errmsg] = ct.ctlinenumber(filepick, genlineint)
 
@@ -149,11 +202,17 @@ const go_to_line = vscode.commands.registerCommand(
       vscode.window.showInformationMessage(errmsg)
       return
     }
+``
 
-    // go to the line
+go to the line.
+
+``
     jumptoline(editor, ctline)
-  })
+``
 
+push go_to_line to the context.
+
+``/activate
   context.subscriptions.push(go_to_line)
 ``
 
@@ -184,21 +243,36 @@ sort by the positions of the strings in ppo that are captured in idx.
 
 `` #ts
   names.sort(function(a: string, b: string) {
-    // both a and b are in the index
+    ``.``
+  })
+``
+
+if both a and b are in the index, return which of them is first.
+
+``
     if ((a in idx) && (b in idx)) {
-      // which is first in the index?
       if (idx[a] < idx[b]) { return -1 } // a first
       else if (idx[a] > idx[b]) { return +1 } // b first
       else { return 0 } // shouldn't happen
-    } else if (a in idx) { // only a is in the index
+    }
+``
+
+only a is in the index or only b is in the index.
+
+``
+    else if (a in idx) { // only a
       return -1 // a first
-    } else if (b in idx) { // only b is in the index
+    } else if (b in idx) { // only b
       return +1 // b first
-    } else {
-      // both a and b are not in the index, keep order
+    }
+``
+
+if both a and b are not in the index, keep their order.
+
+``
+    else {
       return -1
     }
-  })
 ``
 
 ## putfirst
@@ -238,8 +312,14 @@ go to parent code chunk.
 ``/activate/go to parent: #ts
 const go_to_parent = vscode.commands.registerCommand(
   'ct.go_to_parent', async () => {
+    ``.``
+  }
+)
+``
 
-    // get the editor
+get the editor and the line the cursor is in. if no cursor, do nothing and return.
+
+``
     var editor = vscode.window.activeTextEditor
 
     var ctline = currentline(editor)
@@ -248,14 +328,18 @@ const go_to_parent = vscode.commands.registerCommand(
     
     // display a message box
     // vscode.window.showInformationMessage("current line: " + ctline)
+``
 
-    // get the text
+get the text and send it to codetext.
+
+``
     var text = editor.document.getText()
-
-    // update codetext
     ct.ct(text)
+``
 
-    // get the line to jump to
+get the line to jump to, if there was an error, show it.
+
+``
     var [newline, errmsg] = ct.gotoparent(ctline)
 
     // there was an error
@@ -263,11 +347,12 @@ const go_to_parent = vscode.commands.registerCommand(
       vscode.window.showInformationMessage(errmsg)
       return
     }
+``
 
-    // go to the line
+go to the line.
+
+``
     jumptoline(editor, newline)
-  }
-)
 ``
 
 ## go to child
@@ -277,24 +362,33 @@ go to child code chunk.
 ``/activate/go to child: #ts
 const go_to_child = vscode.commands.registerCommand(
   'ct.go_to_child', async () => {
+    ``.``
+  }
+)
+``
 
-    // get the editor
+get the editor and the line the cursor is in. if the cursor isn't in
+the editor, do nothing and return.
+
+``
     var editor = vscode.window.activeTextEditor
-
     var ctline = currentline(editor)
-
     if (ctline == -1) { return } // no cursor in editor
-    
     // display a message box
-    // vscode.window.showInformationMessage("current line: " + ctline)
+    // vscode.window.showInformationMessage("current line: " + ctline)    
+``
 
-    // get the text
+get the text and pass it to codetext.
+    
+
+``
     var text = editor.document.getText()
-
-    // update codetext
     ct.ct(text)
+``
 
-    // get the line to jump to
+get the line to jump to. if there was an error, show it.
+
+``
     var [newline, errmsg] = ct.gotochild(ctline)
 
     // there was an error
@@ -302,11 +396,12 @@ const go_to_child = vscode.commands.registerCommand(
       vscode.window.showInformationMessage(errmsg)
       return
     }
+``
 
-    // go to the line
+go to the line.
+
+``
     jumptoline(editor, newline)
-  }
-)
 ``
 
 ## helper functions
@@ -315,26 +410,43 @@ currentline gives the current line, starting from 1
 
 ``/currentline: #ts
 function currentline(editor: vscode.TextEditor) {
-  // no active cursor?
+  ``.``
+}
+``
+no active cursor?
+
+``
   if (editor.selections.length < 1) {
     return -1
   }
-  // start is a position, it has a line and a character
-  // add 1, cause lines are zero-indexed
+``
+
+start is a position, it has a line and a character.
+add 1, cause lines are zero-indexed.
+
+``
   return editor.selections[0].start.line + 1
-}
 ``
 
 jumptoline jumps to line.
 
 ``/jumptoline: #ts
 function jumptoline(editor: vscode.TextEditor, line: number) {
-  // move the cursor. somehow we have to subtract one to get to the given line. why?
-  editor.selections = [new vscode.Selection(line-1, 0, line-1, 0)]
-  // scroll the cursor into view
-  // what's the difference between a selection and range?
-  var range = new vscode.Range(line-1, 0, line-1, 0)
-  editor.revealRange(range)
+  ``.``
 }
 ``
+
+move the cursor. somehow we have to subtract one to get to the given line. why?
+
+``
+  editor.selections = [new vscode.Selection(line-1, 0, line-1, 0)]
+``
+
+scroll the cursor into view. what's the difference between a selection and range?
+
+``
+  var range = new vscode.Range(line-1, 0, line-1, 0)
+  editor.revealRange(range)
+``
+
 

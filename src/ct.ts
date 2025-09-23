@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 // ct.ts implements codetext in ts
-// it tries to stick closely to the ct implementation of https://github.com/tnustrings/codetext/blob/main/ct/ct.py
+// it tries to stick closely to the go ct implementation of https://github.com/tnustrings/ct
 
 import * as fs from "fs"
 
@@ -122,10 +122,13 @@ export function ct(text: string) {
 
     // are we in a chunk
     var inchunk = false
+    
     // current chunk content
     var chunk = ""
+    
     // current chunk name/path
     var path = null
+    
     // start line of chunk in ct file
     var chunkstart = 0 
 
@@ -133,20 +136,29 @@ export function ct(text: string) {
     for (var i = 0; i < lines.length; i++) {
 	var line = lines[i]
 	//debug("line: '" + line + "'")
+        
 	// we can't decide for sure whether we're opening or closing a chunk by looking at the backticks alone, cause an unnamed chunk is opend the same way it is closed.  so in addition, check that inchunk is false.
         if (/^``[^`]*/.test(line) && !inchunk) {
+        
 	    // at the beginning of chunk remember its name
             inchunk = true
+            
 	    // remember its path
             path = getname(line)
             // debug("path: " + path)
+            
 	    // remember the start line of chunk in ct file
             // add two: one, for line numbers start with one not zero, another, for the chunk text starts in the next line, not this
 	    chunkstart = i+2
 	} else if (isdblticks(line)) {
+        
+            // we're not in a chunk anymore
 	    inchunk = false
+
+            // put in the last read chunk
             // print(f"calling put for: {path}")
             put(path, chunk, chunkstart)
+            
             // reset variables
             chunk = ""
             path = null
