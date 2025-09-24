@@ -1,6 +1,6 @@
 begin a file named foo.py.
 
-``//foo.py:
+``//foo.py: #py
 print("ooh, baby you're a fool to py") 
 if bar {
   ``bar``
