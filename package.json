@@ -1,8 +1,8 @@
 {
-    "name": "codetext",
-    "displayName": "codetext: ct",
+    "name": "ct",
+    "displayName": "ct - codetext",
     "description": "codetext for vs code",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "publisher": "tnustrings",
     "repository": "https://github.com/tnustrings/ct-vscode",
     "engines": {
@@ -16,8 +16,8 @@
     "contributes": {
 	"commands": [
 	    {
-		"command": "ct.assemble",
-		"title": "ct: assemble"
+		"command": "ct.generate",
+		"title": "ct: generate"
 	    },
 	    {
 		"command": "ct.go_to_line",
@@ -35,14 +35,14 @@
 
 	"keybindings": [
 	    {
-		"command": "ct.assemble",
-		"key": "ctrl+alt+a",
-		"mac": "cmd+alt+a"
+		"command": "ct.generate",
+		"key": "ctrl+alt+g",
+		"mac": "cmd+alt+g"
 	    },
 	    {
 		"command": "ct.go_to_line",
-		"key": "ctrl+alt+g",
-		"mac": "cmd+alt+g"
+		"key": "ctrl+alt+l",
+		"mac": "cmd+alt+l"
 	    },
 	    {
 		"command": "ct.go_to_parent",
