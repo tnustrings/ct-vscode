@@ -6,7 +6,7 @@ codetext lets you embed code in text like images or figures floating
 in a document. it's a bit like jupyter notebooks with the addition
 that code chunks are named and you can use the names to nest chunks.
 
-this is a mini codetext example:
+this is a mini example:
 
 ```
 open a file named greeting.py
@@ -27,10 +27,10 @@ print("hi " + name)
 codetext for vscode gives the following commands in the command
 palette (`ctrl-shift-p`):
 
-ct: assemble (`ctrl-alt-a`): assemble code\
-ct: go to line (`ctrl-alt-g`): given a line from a generated file, go to its line in the source .ct file\
-ct: go to parent (`ctrl-alt-p`): go to parent code-chunk\
-ct: go to child (`ctrl-alt-c`): go to child code-chunk
+ct: assemble (`ctrl-alt-g`): generate code\
+ct: go to line (`ctrl-alt-l`): go to a line from a generated file in the source .ct file\
+ct: go to parent (`ctrl-alt-p`): go to the parent code-chunk\
+ct: go to child (`ctrl-alt-c`): go to the child code-chunk
 
 ## more codetext
 

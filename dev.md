@@ -6,7 +6,13 @@ install npm packages:
 npm install
 ```
 
-open as folder in vscode, then ctrl-shift-p > debug: start debugging.
+open as folder in vscode:
+
+```
+code .
+```
+
+then ctrl-shift-p > debug: start debugging.
 
 compile on command line:
 
@@ -38,8 +44,7 @@ add `// @ts-ignore` at top of file to ignore ts checks
 
 try codetext.ts:
 
-$ node cli.js try/virus-prep.ct
-
+node cli.js try/virus-prep.ct
 
 ## up next
 
