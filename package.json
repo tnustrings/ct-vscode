@@ -2,7 +2,7 @@
     "name": "codetext",
     "displayName": "codetext: ct",
     "description": "codetext for vs code",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "publisher": "tnustrings",
     "repository": "https://github.com/tnustrings/ct-vscode",
     "engines": {
@@ -53,6 +53,11 @@
 		"command": "ct.go_to_child",
 		"key": "ctrl+alt+c",
 		"mac": "cmd+alt+c"
+	    },
+	    {
+		"command": "ct.show_gen",
+		"key": "ctrl+alt+s",
+		"mac": "cmd+alt+s"
 	    }
 	],
 

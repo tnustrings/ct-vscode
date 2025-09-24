@@ -6,7 +6,7 @@ codetext lets you embed code in text like images or figures floating
 in a document. it's a bit like jupyter notebooks with the addition
 that code chunks are named and you can use the names to nest chunks.
 
-this is a mini codetext example:
+this is a mini example:
 
 ```
 open a file named greeting.py

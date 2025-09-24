@@ -7,6 +7,39 @@ var ppo = {} // dict of string-arrays
 
 export function activate(context: vscode.ExtensionContext) {
   //console.log("hi, the codetext extension is now active")
+  /*  vscode.commands.executeCommand(
+      "vscode.openWith",
+      vscode.Uri.parse("file:///home/max/codetext/foo.py"),
+      "default",
+      vscode.ViewColumn.Beside
+    )*/
+    var p = "file:///home/max/codetext/zoo.py"
+    vscode.workspace.openTextDocument(p).then(doc =>
+    {
+      vscode.window.showTextDocument(
+        doc,
+        {
+          preserveFocus: true, // keep the focus in the old document
+  	preview: true, // does this have an effect?
+  	viewColumn: vscode.ViewColumn.Beside // show beside the current document
+        }
+      )
+    })
+    // does a second one replace the first?
+    p = "file:///home/max/codetext/foo.py"
+    vscode.workspace.openTextDocument(p).then(doc =>
+    {
+      vscode.window.showTextDocument(
+        doc,
+        {
+          preserveFocus: true, // keep the focus in the old document
+  	preview: true, // does this have an effect?
+  	viewColumn: vscode.ViewColumn.Beside // show beside the current document
+        }
+      )
+    })
+  
+    
   const assemble = vscode.commands.registerCommand(
     'ct.assemble', async () => {
       // get the editor
@@ -217,7 +250,9 @@ function jumptoline(editor: vscode.TextEditor, line: number) {
   // move the cursor. somehow we have to subtract one to get to the given line. why?
   editor.selections = [new vscode.Selection(line-1, 0, line-1, 0)]
   // scroll the cursor into view
-  // what's the difference between a selection and range?
+  revealline(editor, line)
+}
+function revealline(editor: vscode.TextEditor, line: number) {
   var range = new vscode.Range(line-1, 0, line-1, 0)
   editor.revealRange(range)
 }
