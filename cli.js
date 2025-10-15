@@ -10,14 +10,19 @@ var ctfile = process.argv[2]
 var text = fs.readFileSync(ctfile).toString()
 
 // generate source files
-ct.ctwrite(text, ".")
+ct.ctwrite(text, "./tmp", "")
+console.log("out files written to tmp")
+//ct.ct(text, "")
+//console.log(ct.ct(text, ""))
 
+
+console.log("ict: " + ct.ict("try.go", 2))
 
 // try go to parent
-console.log("go to parent from line 18 (should be 10): " + ct.gotoparent(18)[0])
+//console.log("go to parent from line 18 (should be 10): " + ct.gotoparent(18)[0])
 
 // try go to child
-console.log("go to child from line 9 (should be 32): " + ct.gotochild(9)[0])
+//console.log("go to child from line 9 (should be 32): " + ct.gotochild(9)[0])
 
                  
 

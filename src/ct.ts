@@ -104,6 +104,8 @@ var roottext = {}
 // return a string with an error message, if errors happened.
 export function ct(text: string, ctfile: string) : string {
 
+    console.log("hello ct")
+
     var conf = loadconf()
 
     // reset variables
@@ -185,14 +187,14 @@ export function ct(text: string, ctfile: string) : string {
     var refok = true
     var declok = true
     var ok, err, msg
-    for (var root of roots) {
-        [ok, err] = checkref(root)
+    /*for (var key in roots) {
+        [ok, err] = checkref(roots[key])
 	if (!ok) { refok = false }
 	msg = err
-	[ok, err] = checkdecl(root)
+	[ok, err] = checkdecl(roots[key])
 	if (!ok) { declok = false }
 	msg += "\n" + err
-    }
+    }*/
     // don't continue if something's wrong.
     if (!refok || !declok) {
         console.log("chunk refs not working out.") // todo return error
@@ -205,7 +207,7 @@ export function ct(text: string, ctfile: string) : string {
 
         // get the proglang. for now from the filename, maybe later also from hashtag, in case filename has no suffix
 	var proglang = ""
-	if (filename.test(/\./)) {
+	if (/\./.test(filename)) {
     	    var a = filename.split(".")
 	    proglang = a[a.length-1]
 	}
@@ -225,7 +227,7 @@ export function ct(text: string, ctfile: string) : string {
     return null // no error
 }
 
-// checkref checks that each node except root nodes has been referenced
+// checkref checks that each node except root nodes has been referenced.
 function checkref(node: Node) : boolean {
     var ok = true
     // if the node is not root and hasn't been referenced, error
@@ -234,8 +236,8 @@ function checkref(node: Node) : boolean {
 	ok = false
     }
     // check the children
-    for (child of node.childs) {
-        var childok = checkref(child)
+    for (var key in node.cd) {
+        var childok = checkref(node.cd[key])
 	if (!childok) {
             ok = false
 	}
@@ -252,8 +254,8 @@ function checkdecl(node: Node) : boolean {
 	ok = false
     }
     // check the childs
-    for (var child of node.childs) {
-        var childok = checkdecl(child)
+    for (var key in node.cd) {
+        var childok = checkdecl(node.cd[key])
 	if (!childok) {
 	    ok = false
 	}
@@ -323,7 +325,7 @@ class Line {
 // node code-chunks are represented as nodes in a tree. 
 class Node {
     name: string
-    cd // map[
+    cd: { [key:string]:Node }
     lines: line[]
     prevlines: line[]
     ghostchilds: Node[]
@@ -376,6 +378,14 @@ class Node {
 	    out.push(k)
 	}
 	return out
+    }
+
+    // isroot says wether the node is a root, that is whether its parent is nil
+    isroot() : boolean {
+        if (this.cd[".."] == this) {
+           return true
+        }
+        return false
     }
 }
 
@@ -536,11 +546,18 @@ function concatcreatechilds(node: Node, text: string, ict: number, prevtxt: stri
     text = text.replace(/\n$/, "")
     var a = text.split("\n")
     var newlines = makelines(a, ict)
+    //console.log(newlines)
 
     prevtxt = prevtxt.replace(/\n$/, "")
     a = prevtxt.split("\n")
     // get the ict of the first line in prevlines: remove 1 line for the chunk opening line and the number of previous lines.    
     var prevlines = makelines(a, ict - 1 - a.length)
+
+    // filter empty lines at the end of prevlines
+    var i = prevlines.length-1
+    // count down n from the back until first non-empty line
+    for ( ; i >= 0 && /^\s*$/.test(prevlines[i].txt); i--) { }
+    prevlines = prevlines.slice(0, i+1)
 
     var N = node.lines.length
 
@@ -550,13 +567,13 @@ function concatcreatechilds(node: Node, text: string, ict: number, prevtxt: stri
 
     // map from the ct line to the node.
     for (var i = 0; i < newlines.length; i++) {
-      nodeatict[ict + i] = n
+      nodeatict[ict + i] = node
     }
     // also set node at index ct for the opening and the closing line of a chunk.
     // opening line.
-    nodeatict[ict - 1] = n             
+    nodeatict[ict - 1] = node             
     // closing line
-    nodeatict[ict + len(newlines) /* +1 ? */] = n
+    nodeatict[ict + newlines.length /* +1 ? */] = node
 
     //node.text += text
     node.lines.push(...newlines)
@@ -604,7 +621,7 @@ function concatcreatechilds(node: Node, text: string, ict: number, prevtxt: stri
 function makelines(a: string[], ict: int) : Line[] {
     var out: Line[] = []
     for (var i = 0; i < a.length; i++) {
-      out.append(out, new Line(a[i], ict+i))
+      out.push(new Line(a[i], ict+i))
     }
     return out
 }
@@ -732,15 +749,12 @@ chunks that are not.  */
 
 function assemble(node: Node, shouldspace: string, rootname: string, proglang: string, igen: number, ctfile: string, conf) : [string, number] {
 
-    // debug("assemble node " + node.name)
+    //debug("assemble node " + node.name)
 
     // if it's a ghost node, remember the last named parent up the tree
     if (node.name == GHOST) {
         var lnp = lastnamed(node)
     }
-
-    //var out = ""
-    //var lines = node.text.split("\n")
 
     /* 
     find out a first line how much this chunk is alredy indented
@@ -749,7 +763,7 @@ function assemble(node: Node, shouldspace: string, rootname: string, proglang: s
     var alreadyspace
     // leading space already there
     if (node.lines.length > 0) {
-	alreadyspace = node.lines[0].match(/^\s*/)[0]
+	alreadyspace = node.lines[0].txt.match(/^\s*/)[0]
     } else {
 	alreadyspace = "" // no line, so no leading space already there
     }
@@ -762,6 +776,8 @@ function assemble(node: Node, shouldspace: string, rootname: string, proglang: s
 
      // insert comments from previous text nodes.  do this here because the programming language is now safe to be known after all the nodes have been put.  line referencing depends on whether lines were inserted, so do it here also.
     var outlines = insertcmt(node.lines, node.prevlines, proglang, node.isroot(), ctfile, conf)
+    //debug("outlines: ")
+    //debug(outlines)
 
 
     // if the rootname isn't in ict yet, put it there
@@ -775,13 +791,13 @@ function assemble(node: Node, shouldspace: string, rootname: string, proglang: s
     // for (var line of lines) {
     for (var i = 0; i < outlines.length; i++) {
 	var line = outlines[i]
-        if (isname(line)) {
+        if (isname(line.txt)) {
 
             // remember leading whitespace
-            var childshouldspace = line.match(/^\s*/)[0] + addspace
+            var childshouldspace = line.txt.match(/^\s*/)[0] + addspace
 
 	    // get the name
-	    var name = getname(line)
+	    var name = getname(line.txt)
 
             var child
 
@@ -822,12 +838,14 @@ function assemble(node: Node, shouldspace: string, rootname: string, proglang: s
 	    igen += 1
 	}
     }
+
+    //debug("out: " + out)
     
     return [out, igen]
 }
 
 // insertcmt inserts function and don't-edit comments to node.
-function insertcmt(lines: Line[], prevlines: Line[], proglang: string, isroot: boolean, ctfile: string, conf) {
+function insertcmt(lines: Line[], prevlines: Line[], proglang: string, isroot: boolean, ctfile: string, conf) : Line[] {
 
     var prog = getpl(conf, proglang)
      
@@ -838,24 +856,27 @@ function insertcmt(lines: Line[], prevlines: Line[], proglang: string, isroot: b
     var cmtbefore = true
     if (prog.fnccmt == "after") { cmtbefore = false }
 
+    var cmtindent = ""
+    if (prog.cmtindent) { cmtindent = prog.cmtindent }
+
     // the text lines preceeding the current chunk
-    var myprevlines = []
+    var myprevlines: Line[] = []
 
     // leading space regexp
-    leadspacere = /^\s/
+    var leadspacere = /^\s/
 
-    var out = []
+    var out: Line[] = []
     // map from the line number in the node to original line number in ct (get existing line count before new lines are added to node).
     // this loop inserts comment lines and sets ict for all lines (including inserted comments), nothing else.
-    for (var i = 0; i < lines; i++) {
+    for (var i = 0; i < lines.length; i++) {
 
          // if this is a root chunk and the first line,
 	 // insert a 'don't edit' message.
-	 if (isroot && i == 0 && prog != null && prog.cmtline != null) {
+	 if (isroot && i == 0 && prog && prog.cmtline) {
 	 
 	   // make the comment and insert it as first line
 	   var cmt = prog.cmtline + " automatically generated, DON'T EDIT. please edit " + ctfile + " from where this file stems."
-	   out.push(new Line(comment, -1))
+	   out.push(new Line(cmt, -1))
 	 }
 
          var line = lines[i]
@@ -869,24 +890,29 @@ function insertcmt(lines: Line[], prevlines: Line[], proglang: string, isroot: b
              myprevlines = prevlines[i]
          }
 
-        // is the line a function declaration? put in
-	// prevtxt starting from a line that begins with
-	// the function name.
-        if (funcre.test(line.txt)) {
+        if (!funcre.test(line.txt)) {
+	  // it's a normal line, append it.
+	  out.push(line)
+	} else {
+            // this line is a function declaration. put in
+            // prevtxt starting from a line that begins with
+	    // the function name.
+
         
             // get the name of the function 
-            var funcname = funcre.exec(line.txt)[0]
+            var funcname = funcre.exec(line.txt)[1] // [0] holds the whole matched string, [1] holds the first matched group
+	    //console.log("funcname: " + funcname)
 
             // comments need to inherit the identation of their function declaration line, cause that isn't added later.
             // this is done apart from alreadyspace in assemble, cause functions might not be declared on the first line of their chunk, which might be intended differently.
-            var funcspace = line.txt.match(leadspacere)[0]
+            var funcspace = line.txt.match(/^\s*/)[0]
 
             // make a regexp for lines beginning with the function name
             var funcnamere = new RegExp("^" + funcname)
             
             // skip the lines before a line starts with the function name.
 	    var skip = 0
-            for ( ; skip < len(myprevlines) && !funcnamere.test(myprevlines[skip].txt); skip++) {
+            for ( ; skip < myprevlines.length && !funcnamere.test(myprevlines[skip].txt); skip++) {
                 // skip
             }
 
@@ -900,23 +926,22 @@ function insertcmt(lines: Line[], prevlines: Line[], proglang: string, isroot: b
 	    }
 	    
             // insert opening comment mark, if given. 
-            if (prog.cmtopen != "") {
-	       var cmt = funcspace + prog.cmtindent + prog.cmtopen
-                out.append(new Line(cmt, -1))
+            if (prog.cmtopen) {
+	       var cmt = funcspace + cmtindent + prog.cmtopen
+                out.push(new Line(cmt, -1))
             }
-
             // insert the comment lines
             for (var j = 0; j < lencmt; j++) {
 	    	// figure out the comment mark during the comment. if it's a multiline comment, take cmtduring (if there). if it's not a multiline comment take cmtline.
 		var cmtmark = ""
-		if (prog.cmtopen != null) { // multiline comment
+		if (prog.cmtopen) { // multiline comment
 		   cmtmark = prog.cmtduring
 		} else { // single lines of comment
 		   cmtmark = prog.cmtline
 		}
 		
 		// make the comment.
-		var cmt = funcspace + prog.cmtindent + cmtmark + " " + myprevlines[skip + j].txt
+		var cmt = funcspace + cmtindent + cmtmark + " " + myprevlines[skip + j].txt
                 var ict = myprevlines[skip + j].ict
                 
                 // insert the comment line
@@ -924,8 +949,8 @@ function insertcmt(lines: Line[], prevlines: Line[], proglang: string, isroot: b
             }
             
             // insert the closing comment mark, if given. 
-            if (prog.cmtclose != null) {
-	        var cmt = funcspace + prog.cmtindent + prog.cmtclose
+            if (prog.cmtclose) {
+	        var cmt = funcspace + cmtindent + prog.cmtclose
                 out.push(new Line(cmt, -1))
             }
 
@@ -933,10 +958,7 @@ function insertcmt(lines: Line[], prevlines: Line[], proglang: string, isroot: b
 	    if (cmtbefore) {
 	        out.push(line)
 	    }
-        } else {
-	  // it's a normal line, append it.
-	  out.append(line)
-	}
+        } 
     }
     return out
 }
@@ -944,13 +966,13 @@ function insertcmt(lines: Line[], prevlines: Line[], proglang: string, isroot: b
 
 // getpl gets the entry for a programming language from conf
 function getpl(conf, pl: string) {
-    for (prog of conf.proglang) {
+    for (var [key, prog] of Object.entries(conf.proglang)) {
         // does the name match?
         if (prog.name == pl) {
 	    return prog
 	}
 	// do any of the extensions match?
-	for (ext of prog.ext) {
+	for (var ext of prog.ext) {
 	    if (ext == pl) {
 	        return prog
             }
@@ -962,3 +984,71 @@ function getpl(conf, pl: string) {
 // run main
 //main()
 
+
+// loadconf loads the configuration
+function loadconf() {
+    return {
+    "proglang": [
+	{
+	    "name": "awk",
+	    "ext": ["awk"],
+	    "cmtline": "#"
+	},
+	{
+	    "name": "bash",
+	    "ext": ["sh", "bash"],
+	    "cmtline": "#"
+	},
+	{
+	    "name": "c",
+	    "ext": ["c"],
+	    "fncre": ".*\\s+([\\w\\d_]+)\\s*\\(.*\\)\\s*{",
+	    "cmtline": "//",
+	    "fnccmt": "before"
+	    
+	},
+	{
+	    "name": "go",
+	    "ext": ["go"],
+	    "fncre": "func\\s+([\\w\\d_]+).*\\(.*\\).*{", 
+	    "cmtline": "//",
+	    "fnccmt": "before"
+	},
+	{
+	    "name": "html",
+	    "ext": ["html"],
+	    "cmtopen": "<!--",
+	    "cmtclose": "-->"
+	},
+	{
+	    "name": "java",
+	    "ext": ["java"],
+	    "fncre": ".*\\s+([\\w\\d_]+)\\s*\\(.*\\)\\s*{", // don't include (public|private|...) because that would count as a group
+	    "cmtopen": "/**",
+	    "cmtduring": "*",
+	    "cmtclose": "*/",
+	    "cmtline": "//",
+	    "fnccmt": "before"
+	},
+	{
+	    "name": "javascript",
+	    "ext": ["js", "ts"],
+	    "fncre": "(function)?\\s+([\\w\\d_]+).*\\(.*\\)\\s*{", 
+	    "cmtline": "//",
+	    "fnccmt": "before"
+	},
+	{
+	    "name": "python",
+	    "ext": ["py"],
+	    "fncre": "def\\s+([\\w\\d_]+)\\s*\\(.*\\).*:",
+            "cmtopen": "\"\"\"",
+	    "cmtclose": "\"\"\"",
+	    "cmtindent": "    ",
+	    "cmtline": "#",
+	    "fnccmt": "after"
+	}
+    ]
+  }
+
+    //return JSON.parse(s)
+}

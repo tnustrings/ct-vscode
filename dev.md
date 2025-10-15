@@ -33,6 +33,14 @@ vsce login tnustrings
 vsce publish
 ```
 
+## debug
+
+use `cli.js` to run ct.ts on command line:
+
+```
+make; npm run compile; node cli.js try/try.ct
+```
+
 ## access tokens
 
 sign in to the azure marketplace https://dev.azure.com/tnustrings/
