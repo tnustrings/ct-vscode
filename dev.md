@@ -20,15 +20,28 @@ compile on command line:
 npm run compile
 ```
 
-package or publish with vsce:
+package with vsce:
 
 ```
 vsce package
+```
+
+publish with vsce:
+
+```
+vsce login tnustrings
 vsce publish
 ```
 
-## notes
+## access tokens
 
+sign in to the azure marketplace https://dev.azure.com/tnustrings/
+
+how to create access tokens:
+
+https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token
+
+## notes
         
 get vsce package to work?: https://stackoverflow.com/a/48798945
 

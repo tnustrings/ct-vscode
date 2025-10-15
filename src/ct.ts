@@ -11,17 +11,17 @@ function debug(s) {
 }
 
 // for each generated file, map its line numbers to the original line numbers in ct file
-var ctlinenr = {}
+var ictmap = {}
 
-// ctlinenumber map line numbers of a generated file to the original line numbers in ct file
-export function ctlinenumber(rootname: string, genlinenr: number) {
+// ict maps line numbers of a generated file to the original line numbers in ct file
+export function ict(rootname: string, igen: number) {
     // rootname not there
-    if (!(rootname in ctlinenr)) {
+    if (!(rootname in ictmap)) {
       return [-1, "there is no file named " + rootname]
-    } else if (!(genlinenr in ctlinenr[rootname])) { // linenumber not there
-      return [-1, rootname + " doesn't have line " + genlinenr]
+    } else if (!(igen in ictmap[rootname])) { // linenumber not there
+      return [-1, rootname + " doesn't have line " + igen]
     }
-    return [ctlinenr[rootname][genlinenr], null]
+    return [ictmap[rootname][igen], null]
 }
 
 
@@ -37,15 +37,15 @@ export function rootnames() {
 }
 
 // the node at a ct line (if there is one)
-var nodeatctline = {}
+var nodeatict = {}
 
-// gotoparent gives the ctlinenr where a child is referenced in its parent
-export function gotoparent(ctline: number) {
+// gotoparent gives the ict where a child is referenced in its parent
+export function gotoparent(ict: number) : [number, string] {
   // get the node from where we start
-  if (!(ctline in nodeatctline)) {
+  if (!(ict in nodeatict)) {
     return [-1, "there is no codechunk at this line"]
   }
-  var child = nodeatctline[ctline]
+  var child = nodeatict[ict]
 
   // get the child's parent
   var parent = child.cd[".."]
@@ -53,40 +53,36 @@ export function gotoparent(ctline: number) {
     return [-1, "this code-chunk has no parent"]
   }
 
-  // get the child's line in parent
-  var lip = child.lineinparent
+  // get the child's index in parent
+  var lip = child.iip
 
   // map from the line in parent to the line in ct
-  return [parent.ctlinenr[lip], null]
+  return [parent.lines[lip].ict, null]
 }
 
-// gotochild gives the ctlinenr of the first line of a parent's child
-export function gotochild(ctline: number) {
+// gotochild gives the ict of the first line of a parent's child
+export function gotochild(ict: number) : [number, string] {
   // get the node from where we start
-  if (!(ctline in nodeatctline)) {
+  if (!(ict in nodeatict)) {
     return [-1, "there is no codechunk at this line"]
   }
-  var parent = nodeatctline[ctline]
-
-  // get the line relative to the parent
-  /*var p_start_ctline = parent.ctlinenr[0]
-  var lip = ctline - p_start_ctline #bug, cause there can be in-between chunk text. probably just use parent.childatctline[ctline] to get to the child*/
+  var parent = nodeatict[ict]
 
   // get the child
-  if (!(i in parent.childatctline)) {
+  if (!(ict in parent.caict)) {
     return [-1, "try going to a line that references a child node"]
   }
-  var child = parent.childatctline[i]
+  var child = parent.caict[ict]
   
   // return the ct start line of the child
-  return [child.ctlinenr[0], null]
+  return [child.lines[0].ict, null]
 }
 
 // ctwrite runs codetext and writes the assembled files
-export function ctwrite(text: string, dir: string) {
+export function ctwrite(text: string, dir: string, ctfile: string) {
 
     // run codetext
-    ct(text)
+    ct(text, ctfile)
 
     // write the assembled text for each root
     for (var filename of Object.keys(roots)) {
@@ -105,18 +101,20 @@ export function ctwrite(text: string, dir: string) {
 var roottext = {}
 
 // ct assembles codetext without writing files
-export function ct(text: string) {
+// return a string with an error message, if errors happened.
+export function ct(text: string, ctfile: string) : string {
+
+    var conf = loadconf()
 
     // reset variables
     roots = {}
     roottext = {}
-    ctlinenr = {}
+    ictmap = {}
     currentnode = null
     openghost = null
-    nodeatctline = {}
+    nodeatict = {}
 
     var lines = text.split("\n")
-
 
     // put in the chunks
 
@@ -130,7 +128,11 @@ export function ct(text: string) {
     var path = null
     
     // start line of chunk in ct file
-    var chunkstart = 0 
+    var ichunkstart = 0
+
+    // the text preceeding a chunk
+    var prevtxt = ""
+
 
     // for (line of lines) {
     for (var i = 0; i < lines.length; i++) {
@@ -149,7 +151,7 @@ export function ct(text: string) {
             
 	    // remember the start line of chunk in ct file
             // add two: one, for line numbers start with one not zero, another, for the chunk text starts in the next line, not this
-	    chunkstart = i+2
+	    ichunkstart = i+2
 	} else if (isdblticks(line)) {
         
             // we're not in a chunk anymore
@@ -157,15 +159,17 @@ export function ct(text: string) {
 
             // put in the last read chunk
             // print(f"calling put for: {path}")
-            put(path, chunk, chunkstart)
+            put(path, chunk, ichunkstart, prevtxt)
             
             // reset variables
             chunk = ""
             path = null
+	    prevtxt = ""
             // print("")
 	} else if(inchunk) { // when we're in chunk remember line
 	    chunk += line + "\n"
-	} else {
+	} else { // remember text between chunks
+	    prevtxt += line + "\n"
             // console.log(line) // for debugging
 	}
 
@@ -177,12 +181,37 @@ export function ct(text: string) {
 
     cdroot(currentnode)
 
+    // check that no references or declarations are missing.
+    var refok = true
+    var declok = true
+    var ok, err, msg
+    for (var root of roots) {
+        [ok, err] = checkref(root)
+	if (!ok) { refok = false }
+	msg = err
+	[ok, err] = checkdecl(root)
+	if (!ok) { declok = false }
+	msg += "\n" + err
+    }
+    // don't continue if something's wrong.
+    if (!refok || !declok) {
+        console.log("chunk refs not working out.") // todo return error
+        return msg
+    }
+
     // at the end, write the assembled text to roottext
     for (var filename of Object.keys(roots)) {
         // todo: add don't edit comment like before
+
+        // get the proglang. for now from the filename, maybe later also from hashtag, in case filename has no suffix
+	var proglang = ""
+	if (filename.test(/\./)) {
+    	    var a = filename.split(".")
+	    proglang = a[a.length-1]
+	}
         
         // assemble the code
-        var [out, _] = assemble(roots[filename], "", filename, 1)
+        var [out, _] = assemble(roots[filename], "", filename, proglang, 1, ctfile, conf)
         // printtree(roots[filename])
 
 	// and write it to file
@@ -193,12 +222,48 @@ export function ct(text: string) {
 	// save the generated text
 	roottext[filename] = out
     }
+    return null // no error
+}
+
+// checkref checks that each node except root nodes has been referenced
+function checkref(node: Node) : boolean {
+    var ok = true
+    // if the node is not root and hasn't been referenced, error
+    if (!node.isroot() && !n.r) {
+        console.log("error: node %s hasn't been referenced from another node.\n", pwd(node)) // todo give line number? what about empty chunks where n.ict[0] wouldn't work? could put pass the ctline of the chunk opening, and node save this in a property, in case no lines get added to the node?
+	ok = false
+    }
+    // check the children
+    for (child of node.childs) {
+        var childok = checkref(child)
+	if (!childok) {
+            ok = false
+	}
+    }
+    return ok
+}
+
+// checkdecl checks that each node except ghost nodes has been declared
+// doubles with checks in put(), but necessary, cause there could just be a reference to a chunk that's never opened, put() wouldn't catch this.
+function checkdecl(node: Node) : boolean {
+    var ok = true
+    if (!node.d) {
+        console.log("error: node %s hasn't been declared.\n", pwd(node))
+	ok = false
+    }
+    // check the childs
+    for (var child of node.childs) {
+        var childok = checkdecl(child)
+	if (!childok) {
+	    ok = false
+	}
+    }
+    return ok // is the tree hanging on this node ok?
 }
 
 
-
 // isdeclaration returns true if line is the declaration line of a code chunk
-function isdeclaration(line: string) {
+function isdeclaration(line: string) : boolean {
     // return line.match(/^<<[^\>]*$/)
     // the line needs start ticks and a wordchar after that
     var startticks = /^``[^`]*\n?$/.test(line)
@@ -207,13 +272,13 @@ function isdeclaration(line: string) {
 }
 
 // isname returns true if line is a referencing name line of a code chunk
-function isname(line: string) {
+function isname(line: string) : boolean {
     return /.*``.*``/.test(line) // todo couldbe be ``.+`` or?
 }
 
 // isdblticks says if the line consists of two ticks only (not considering programming-language hashtag)
 // this could either be a start line of an unnamed chunk or an end line of a chunk
-function isdblticks(line: string) {
+function isdblticks(line: string) : boolean {
     var ret = /^``(\s+#\w+)?$/.test(line)
     //debug(line)
     //debug("isdblticks: '" + line + "':" + ret)
@@ -222,7 +287,7 @@ function isdblticks(line: string) {
 
 
 // getname gets the chunkname from a chunk-opening or in-chunk reference
-function getname(line: string) {
+function getname(line: string) : string {
     // remove the leading ticks (openings and references)
     var name = line.replace(/^[^`]*``/, "") // replace only first
     // remove the trailing ticks (references only)
@@ -240,18 +305,32 @@ function getname(line: string) {
 }
 
 // fromroot says whether the name starts from a root
-function fromroot(name: string) {
+function fromroot(name: string) : boolean {
     return /^\/\//.test(name)
 }
 
+// Line holds the text of a line and its index in the ct file
+class Line {
+    txt: string
+    ict: number
 
-// node code-chunks are represented as nodes in a tree. """
+    constructor(txt: string, ict: number) {
+        this.txt = txt
+	this.ict = ict
+    }
+}
+
+// node code-chunks are represented as nodes in a tree. 
 class Node {
-    names;
-    cd;
-    lines;
-    ghostchilds;
-    ctlinenr;
+    name: string
+    cd // map[
+    lines: line[]
+    prevlines: line[]
+    ghostchilds: Node[]
+    d: boolean
+    r: boolean
+    iip: number
+    caict // map[int]Node
     
     constructor(name, parent) {
         this.name = name
@@ -268,25 +347,28 @@ class Node {
 	
 	// keep the text as lines, cause splitting on '\n' on empty text gives length 1 (length 0 is wanted)
 	this.lines = []
+
+	// prevlines: the previous lines for each chunk in this node, accessed by the index of the first chunk line.
+	this.prevlines = []
 	
 	// the ghost children. why more than one?
         this.ghostchilds = []
 	
-	// for each text line, ctlinenr holds its original line nr in ct file
-	this.ctlinenr = {}
-	
         // has this node been declared by a colon ':'
-        this.hasbeendeclared = false
+        this.d = false
 
-	// at which line of the parent is the child?
-	this.lineinparent = null
+	// r: has this node been referenced. every node except root nodes needs to have been referenced.
+    	this.r = false
 
-	// at these ct lines, there are children { int -> Node }
-	this.childatctline = {}
+	// at which index of the parent is the child?
+	this.iip = null
+
+	// caict (child-at-ict) at these ct lines, there are children { int -> Node }
+	this.caict = {}
     }
         
     // ls lists the named childs
-    ls() {
+    ls() : string[] {
 	var out = []
         // return all except . and ..
 	for (var k of Object.keys(this.cd)) {
@@ -302,7 +384,7 @@ var openghost = null // if the last chunk opened a ghostnode, its this one
 
     
 // put puts text in tree under relative or absolute path
-function put(path: string, text: string, ctlinenr: number) {
+function put(path: string, text: string, ict: number, prevtxt: string) {
 
     //debug("put: " + path)
     //debug("put: " + text)
@@ -312,7 +394,7 @@ function put(path: string, text: string, ctlinenr: number) {
         currentnode = openghost
 
         // we enter the ghost node for the first time here, this implicitly declares it
-	currentnode.hasbeendeclared = true
+	currentnode.d = true
         openghost = null // necessary?
 	
     } else {
@@ -321,7 +403,7 @@ function put(path: string, text: string, ctlinenr: number) {
 	
 	// if the path would need a node to cling to but there isn't noe
         if (currentnode == null && !fromroot(path)) { 
-            console.log("error (line " + ctlinenr + "): there's no file to attach '" + path + "' to, should it start with '//'?")
+            console.log("error (line " + ict + "): there's no file to attach '" + path + "' to, should it start with '//'?")
             process.exit()
 	}
 
@@ -332,21 +414,21 @@ function put(path: string, text: string, ctlinenr: number) {
         path = path.replace(/:\s*$/, "")
 
         // find the node, if not there, create it
-        var node = cdmk(currentnode, path, ctlinenr)
+        var node = cdmk(currentnode, path, ict)
 
-        // we'd like to check that a node needs to have been declared with : before text can be appended to it. for that, it doesn't help to check if a node is there, cause it might have already been created as a parent of a node. so we introduce a node.hasbeendeclared property.
+        // we'd like to check that a node needs to have been declared with : before text can be appended to it. for that, it doesn't help to check if a node is there, cause it might have already been created as a parent of a node. so we introduce a node.d property.
 
-        if (isdeclaration && node.hasbeendeclared) {
-            console.log("error (line " + ctlinenr + "): chunk " + path + " has already been declared, maybe drop the colon ':'")
+        if (isdeclaration && node.d) {
+            console.log("error (line " + ict + "): chunk " + path + " has already been declared, maybe drop the colon ':'")
             process.exit()
-	} else if (!isdeclaration && !node.hasbeendeclared) {
-            console.log("error (line " + ctlinenr + "): chunk " + path + " needs to be declared with ':' before text is appended to it")
+	} else if (!isdeclaration && !node.d) {
+            console.log("error (line " + ict + "): chunk " + path + " needs to be declared with ':' before text is appended to it")
             process.exit()
 	}
 
         // set that the node has been declared
         if (isdeclaration) {
-            node.hasbeendeclared = true
+            node.d = true
 	}
 
         // all should be well, we can set the node as the current node
@@ -354,18 +436,18 @@ function put(path: string, text: string, ctlinenr: number) {
     }
 
     // append the text to node
-    concatcreatechilds(currentnode, text, ctlinenr)
+    concatcreatechilds(currentnode, text, ict, prevtxt)
 }
 
 
 // cdmk walks the path from node and creates nodes if needed along the way.
 // it returns the node it ended up at
-function cdmk(node: Node, path: string, ctlinenr: number) {
+function cdmk(node: Node, path: string, ict: number) : Node {
 
     // if our path is absolute (starting from a root), we can't just jump to the root, because when changing positions in the tree, we need to make sure that ghostnodes are exited properly.  cdone takes care of that, so we go backward node by node with cdone.  cdroot does this recursively.
     if (/^\//.test(path)) {
         // exit open ghost nodes along the way
-        node = cdroot(node, ctlinenr)
+        node = cdroot(node, ict)
     }
 
     // if the path starts with // we might need to change roots.
@@ -415,11 +497,11 @@ function cdmk(node: Node, path: string, ctlinenr: number) {
             var res = []
 	    bfs(node, elem, res) // search elem in node's subtree
             if (res.length > 1) {
-		console.log("error (line " + ctlinenr + "): more than one nodes named " + elem + " in sub-tree of " + pwd(node))
+		console.log("error (line " + ict + "): more than one nodes named " + elem + " in sub-tree of " + pwd(node))
 		process.exit()
 	    }
 	    else if (res.length == 0) {
-		console.log("error (line " + ctlinenr +"): no nodes named " + elem + " in sub-tree of " + pwd(node))
+		console.log("error (line " + ict +"): no nodes named " + elem + " in sub-tree of " + pwd(node))
 		process.exit()
 	    }
 	    else {
@@ -430,7 +512,7 @@ function cdmk(node: Node, path: string, ctlinenr: number) {
 
 	// standard:
         // walk one step
-        var walk = cdone(node, elem, ctlinenr)
+        var walk = cdone(node, elem, ict)
         // if child not there, create it
         if (walk == null) {
             walk = createadd(elem, node)
@@ -443,40 +525,56 @@ function cdmk(node: Node, path: string, ctlinenr: number) {
 
 // concatcreatechilds concatenates text to node and creates children from text (named or ghost)
 // this is the only place where text gets added to nodes
-function concatcreatechilds(node: Node, text: string, ctlinenr: number) {
+function concatcreatechilds(node: Node, text: string, ict: number, prevtxt: string) {
 
-    openghost = null // why here? not so clear. but we need to reset it somewhere, that only the direct next code chunk can fill a ghost node
+    // reset the open ghost. why here? not so clear. but we need to reset it somewhere, that only the direct next code chunk can fill a ghost node.
+    openghost = null 
 
-    // replace the last \n so that spli doesn't produce an empty line at the end
+    // make line arrays for text and prevtxt.
+    
+    // replace the last \n so that spli doesn't produce an empty line at the end.
     text = text.replace(/\n$/, "")
-    var newlines = text.split("\n")
+    var a = text.split("\n")
+    var newlines = makelines(a, ict)
 
-    // map from the line number in node to original line number in ct (get existing line count before new lines are added to node)
+    prevtxt = prevtxt.replace(/\n$/, "")
+    a = prevtxt.split("\n")
+    // get the ict of the first line in prevlines: remove 1 line for the chunk opening line and the number of previous lines.    
+    var prevlines = makelines(a, ict - 1 - a.length)
+
     var N = node.lines.length
-    for (var i = 0; i < newlines.length; i++) {
-	node.ctlinenr[N+i] = ctlinenr + i
 
-	// map from the ct line to the node
-	nodeatctline[ctlinenr + i] = node
+// remember the prevlines. function comments can be inserted from them at assembly later. for inserting function comments we need to know the programming language of the chunk, which is mostly inferred from the file extension of its root. the root is generally known for each chunk at put, cause the chunk has in some way to specify it, either explicitly in its path or implicitly because the root is somewhere before it in the text.  there is an edge case though when the root file doesn't have an extension, but the root chunk specifies the programming language via hashtag and comes after this chunk in the text (presumably quite rare).  in that case we'd need to wait after the root chunk is put to know the programming language of the current chunk. so for now, when inserting function comments, we pass the programming language down from the root node at assembly.
+
+    node.prevlines[N] = prevlines
+
+    // map from the ct line to the node.
+    for (var i = 0; i < newlines.length; i++) {
+      nodeatict[ict + i] = n
     }
+    // also set node at index ct for the opening and the closing line of a chunk.
+    // opening line.
+    nodeatict[ict - 1] = n             
+    // closing line
+    nodeatict[ict + len(newlines) /* +1 ? */] = n
 
     //node.text += text
     node.lines.push(...newlines)
     
     for (var i = 0; i < newlines.length; i++) {
         var line = newlines[i]
-	if (!isname(line)) { continue }
+	if (!isname(line.txt)) { continue }
 
 	// why do we create the children when concating text? maybe because here we know where childs of ghost nodes end up in the tree. """
 
 	// the newly created child
 	var child = null 
 
-	var name = getname(line)
+	var name = getname(line.txt)
 	if (name == ".") {// ghost child
             // if we're not at the first ghost chunk here
             if (openghost != null) {
-		console.log("error (line " + ctlinenr + i + "): only one ghost child per text chunk allowed")
+		console.log("error (line " + ict + i + "): only one ghost child per text chunk allowed")
 		process.exit()
 	    }
             // create the ghost chunk
@@ -490,16 +588,30 @@ function concatcreatechilds(node: Node, text: string, ctlinenr: number) {
 	    }
 	}
 
+	// the child has been referenced.
+	// (not technically necessary to set this for ghost childs?)
+	child.r = true
+
 	// at which line of the parent is the child?
-	child.lineinparent = i+N
+	child.iip = i + N
 
 	// at this line, the parent has a child
-	node.childatctline[ctlinenr + i] = child
+	node.caict[ict + i] = child
     }
 }
 
+// makelines turns an array of strings into an array of lines counting up their index in the ctfile
+function makelines(a: string[], ict: int) : Line[] {
+    var out: Line[] = []
+    for (var i = 0; i < a.length; i++) {
+      out.append(out, new Line(a[i], ict+i))
+    }
+    return out
+}
+
+
 // createadd creates a named or ghost node and adds it to its parent
-function createadd(name: string, parent: Node) {
+function createadd(name: string, parent: Node) : Node {
 
     var node = new Node(name, parent)
     // print(f"createadd: {pwd(node)}")
@@ -533,7 +645,7 @@ function createadd(name: string, parent: Node) {
 }
 
 // lastnamed returns the last named parent node
-function lastnamed(node: Node) {
+function lastnamed(node: Node) : Node {
     if (node == null) { return null }
     if (node.name != GHOST) { return node }
     return lastnamed(node.cd[".."])
@@ -557,10 +669,10 @@ function bfs(node: Node, name: string, out: Node[]) {
 }
 
 // cdone walks one step from node
-function cdone(node: Node, step: string, ctlinenr: number) {
+function cdone(node: Node, step: string, ict: number) : Node {
     if (step == GHOST) {
         // we may not walk into a ghost node via path
-        console.log("error (line " + ctlinenr + "): don't use string '{GHOST}' in paths")
+        console.log("error (line " + ict + "): don't use string '{GHOST}' in paths")
         process.exit()
     }
     if (step == "") {
@@ -577,13 +689,13 @@ function cdone(node: Node, step: string, ctlinenr: number) {
 }
 
 // cdroot cds back to root. side effect: ghosts are exited
-function cdroot(node: Node, ctlinenr: number) {
+function cdroot(node: Node, ict: number) : Node {
     if (node == null) { return null }
     if (node.cd[".."] == node) { // we're at a root
         return node
     }
     // continue via the parent
-    return cdroot(cdone(node, "..", ctlinenr)) // it's probably not very necessary to pass the ctlinenr here, cause it only check's that the step isn't a '#' that would walk into a ghostnode
+    return cdroot(cdone(node, "..", ict)) // it's probably not very necessary to pass the ict here, cause it only check's that the step isn't a '#' that would walk into a ghostnode
 }
 
 // exitghost moves ghost node's named children to last named parent. needs to be called after leaving a ghost node
@@ -618,7 +730,7 @@ space to shouldspace. this way we can take chunks that are already
 (or partly) indented with respect to their parent in the editor, and
 chunks that are not.  */
 
-function assemble(node: Node, shouldspace: string, rootname: string, genlinenr: number) {
+function assemble(node: Node, shouldspace: string, rootname: string, proglang: string, igen: number, ctfile: string, conf) : [string, number] {
 
     // debug("assemble node " + node.name)
 
@@ -648,60 +760,204 @@ function assemble(node: Node, shouldspace: string, rootname: string, genlinenr: 
     //debug("alreadyspace: '" + alreadyspace + "'")
     //debug("addspace: '" + addspace + "'")
 
-    // if the rootname isn't in ctlinenr yet, put it there
-    if (!(rootname in ctlinenr)) {
-	ctlinenr[rootname] = {}
+     // insert comments from previous text nodes.  do this here because the programming language is now safe to be known after all the nodes have been put.  line referencing depends on whether lines were inserted, so do it here also.
+    var outlines = insertcmt(node.lines, node.prevlines, proglang, node.isroot(), ctfile, conf)
+
+
+    // if the rootname isn't in ict yet, put it there
+    if (!(rootname in ictmap)) {
+	ictmap[rootname] = {}
     }
 
     var out = ""
     var outnew = ""
     var ighost = 0 
     // for (var line of lines) {
-    for (var i = 0; i < node.lines.length; i++) {
-	var line = node.lines[i]
+    for (var i = 0; i < outlines.length; i++) {
+	var line = outlines[i]
         if (isname(line)) {
 
             // remember leading whitespace
             var childshouldspace = line.match(/^\s*/)[0] + addspace
-            // print("#getname 1")
+
+	    // get the name
 	    var name = getname(line)
-            if (name == ".") {  // assemble a ghost-child
+
+            var child
+
+            if (name == ".") {
+	    
+                // assemble the next ghost-child.
+		
 		//debug("assemble ghost child " + ighost + " for " + node.name)
-		var [outnew, linenrnew] = assemble(node.ghostchilds[ighost], childshouldspace, rootname, genlinenr)
+		child = node.ghostchilds[ighost]
+		var [outnew, linenrnew] = assemble(child, childshouldspace, rootname, proglang, igen, ctfile, conf)
 		// append the text
 		out += outnew
-		genlinenr = linenrnew
+		igen = linenrnew
                 ighost += 1
-	    } else {            // assemble a name child
-	      	var child
+	    } else {
+	    
+	        // assemble a name child.
+		
                 if (node.name == GHOST) {
                     // if at ghost node, we get to the child via the last named parent
 		    child = lnp.cd[name]
 		} else {
 		    child = node.cd[name]
 		}
-                var [outnew, linenrnew] = assemble(child, childshouldspace, rootname, genlinenr)
+                var [outnew, linenrnew] = assemble(child, childshouldspace, rootname, proglang, igen, ctfile, conf)
 		out += outnew
-		genlinenr = linenrnew
+		igen = linenrnew
 	    }
 	}
 	else {  // not name line, normal line
 	    // append the line
-            out += addspace + line + "\n"
+            out += addspace + line.txt + "\n"
 
 	    // map from the line number in the generated source to the original line number in the ct
-	    ctlinenr[rootname][genlinenr] = node.ctlinenr[i]
+	    ictmap[rootname][igen] = line.ict
 	    
 	    // we added one line to root, so count up
-	    genlinenr += 1
+	    igen += 1
 	}
     }
     
-    return [out, genlinenr]
+    return [out, igen]
+}
+
+// insertcmt inserts function and don't-edit comments to node.
+function insertcmt(lines: Line[], prevlines: Line[], proglang: string, isroot: boolean, ctfile: string, conf) {
+
+    var prog = getpl(conf, proglang)
+     
+    // make a regexp to recognize (and extract) function names for the node's programming language.
+    var funcre = new RegExp(prog.fncre)
+
+    // are comments inserted before or after function declaration?
+    var cmtbefore = true
+    if (prog.fnccmt == "after") { cmtbefore = false }
+
+    // the text lines preceeding the current chunk
+    var myprevlines = []
+
+    // leading space regexp
+    leadspacere = /^\s/
+
+    var out = []
+    // map from the line number in the node to original line number in ct (get existing line count before new lines are added to node).
+    // this loop inserts comment lines and sets ict for all lines (including inserted comments), nothing else.
+    for (var i = 0; i < lines; i++) {
+
+         // if this is a root chunk and the first line,
+	 // insert a 'don't edit' message.
+	 if (isroot && i == 0 && prog != null && prog.cmtline != null) {
+	 
+	   // make the comment and insert it as first line
+	   var cmt = prog.cmtline + " automatically generated, DON'T EDIT. please edit " + ctfile + " from where this file stems."
+	   out.push(new Line(comment, -1))
+	 }
+
+         var line = lines[i]
+
+         // go through the node's lines.
+         
+         // is this line the beginnig of a chunk?
+	 // (subtracting the added lines, are there prevlines
+	 // for this line index?)
+         if (i in prevlines) {
+             myprevlines = prevlines[i]
+         }
+
+        // is the line a function declaration? put in
+	// prevtxt starting from a line that begins with
+	// the function name.
+        if (funcre.test(line.txt)) {
+        
+            // get the name of the function 
+            var funcname = funcre.exec(line.txt)[0]
+
+            // comments need to inherit the identation of their function declaration line, cause that isn't added later.
+            // this is done apart from alreadyspace in assemble, cause functions might not be declared on the first line of their chunk, which might be intended differently.
+            var funcspace = line.txt.match(leadspacere)[0]
+
+            // make a regexp for lines beginning with the function name
+            var funcnamere = new RegExp("^" + funcname)
+            
+            // skip the lines before a line starts with the function name.
+	    var skip = 0
+            for ( ; skip < len(myprevlines) && !funcnamere.test(myprevlines[skip].txt); skip++) {
+                // skip
+            }
+
+            // lencmt holds the length of the comment in myprevlines
+            var lencmt = myprevlines.length - skip
+	    
+	    // if the function declaration comes before the comment,
+	    // insert it here
+	    if (!cmtbefore) {
+	        out.push(line)
+	    }
+	    
+            // insert opening comment mark, if given. 
+            if (prog.cmtopen != "") {
+	       var cmt = funcspace + prog.cmtindent + prog.cmtopen
+                out.append(new Line(cmt, -1))
+            }
+
+            // insert the comment lines
+            for (var j = 0; j < lencmt; j++) {
+	    	// figure out the comment mark during the comment. if it's a multiline comment, take cmtduring (if there). if it's not a multiline comment take cmtline.
+		var cmtmark = ""
+		if (prog.cmtopen != null) { // multiline comment
+		   cmtmark = prog.cmtduring
+		} else { // single lines of comment
+		   cmtmark = prog.cmtline
+		}
+		
+		// make the comment.
+		var cmt = funcspace + prog.cmtindent + cmtmark + " " + myprevlines[skip + j].txt
+                var ict = myprevlines[skip + j].ict
+                
+                // insert the comment line
+                out.push(new Line(cmt, ict))
+            }
+            
+            // insert the closing comment mark, if given. 
+            if (prog.cmtclose != null) {
+	        var cmt = funcspace + prog.cmtindent + prog.cmtclose
+                out.push(new Line(cmt, -1))
+            }
+
+	    // if the function declaration comes after the comment, insert it here
+	    if (cmtbefore) {
+	        out.push(line)
+	    }
+        } else {
+	  // it's a normal line, append it.
+	  out.append(line)
+	}
+    }
+    return out
 }
 
 
-
+// getpl gets the entry for a programming language from conf
+function getpl(conf, pl: string) {
+    for (prog of conf.proglang) {
+        // does the name match?
+        if (prog.name == pl) {
+	    return prog
+	}
+	// do any of the extensions match?
+	for (ext of prog.ext) {
+	    if (ext == pl) {
+	        return prog
+            }
+	}
+    }
+    return null
+}
 
 // run main
 //main()
