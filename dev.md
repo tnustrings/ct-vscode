@@ -38,7 +38,7 @@ vsce publish
 use `cli.js` to run ct.ts on command line:
 
 ```
-make; npm run compile; node cli.js try/try.ct
+make && npm run compile && node cli.js try/try.ct
 ```
 
 ## access tokens
