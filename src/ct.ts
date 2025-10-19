@@ -935,13 +935,14 @@ function insertcmt(lines: Line[], prevlines: Line[], proglang: string, isroot: b
 	    	// figure out the comment mark during the comment. if it's a multiline comment, take cmtduring (if there). if it's not a multiline comment take cmtline.
 		var cmtmark = ""
 		if (prog.cmtopen) { // multiline comment
-		   cmtmark = prog.cmtduring
+		   // insert a during mark, if there is one (the single stars at the beginnig of each line in javadoc).
+		   if (prog.cmtduring) { cmtmark = prog.cmtduring + " " }
 		} else { // single lines of comment
-		   cmtmark = prog.cmtline
+		   cmtmark = prog.cmtline + " "
 		}
 		
 		// make the comment.
-		var cmt = funcspace + cmtindent + cmtmark + " " + myprevlines[skip + j].txt
+		var cmt = funcspace + cmtindent + cmtmark + myprevlines[skip + j].txt
                 var ict = myprevlines[skip + j].ict
                 
                 // insert the comment line
