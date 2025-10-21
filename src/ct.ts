@@ -848,6 +848,16 @@ function assemble(node: Node, shouldspace: string, rootname: string, proglang: s
 function insertcmt(lines: Line[], prevlines: Line[], proglang: string, isroot: boolean, ctfile: string, conf) : Line[] {
 
     var prog = getpl(conf, proglang)
+
+     // don't do anything if no programming language or no function re given
+     if (prog == null || prog.fncre == undefined) {
+       return lines
+     }
+     // don't do anything if comment marks are not given.
+     if (prog.cmtline == undefined || (prog.cmtopen == undefined && prog.Cmtclose == undefined)) {
+       return lines
+     }
+
      
     // make a regexp to recognize (and extract) function names for the node's programming language.
     var funcre = new RegExp(prog.fncre)
