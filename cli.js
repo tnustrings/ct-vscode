@@ -13,7 +13,7 @@ var text = fs.readFileSync(ctfile).toString()
 ct.ctwrite(text, "./tmp", "")
 console.log("out files written to tmp")
 //ct.ct(text, "")
-//console.log(ct.ct(text, ""))
+console.log("ct out:" + ct.ct(text, ""))
 
 
 console.log("ict: " + ct.ict("try.go", 2))

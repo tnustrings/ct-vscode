@@ -116,7 +116,16 @@ export function ct(text: string, ctfile: string) : string {
     openghost = null
     nodeatict = {}
 
+    // take care of dos line breaks \r\n
+    text = text.replaceAll("\r\n", "\n")
+    //console.log("text: " + text)
     var lines = text.split("\n")
+    // put the \n that split removed back to each line, text concat in nodes relies on that.
+    for (var i = 0; i < lines.length; i++) {
+        //console.log("lines[i]: " + lines[i])
+        lines[i] += "\n"
+    }
+
 
     // put in the chunks
 
@@ -135,12 +144,11 @@ export function ct(text: string, ctfile: string) : string {
     // the text preceeding a chunk
     var prevtxt = ""
 
-
     // for (line of lines) {
     for (var i = 0; i < lines.length; i++) {
 	var line = lines[i]
-	//debug("line: '" + line + "'")
-        
+	console.log("line: '" + line + "'")
+        //console.log("isdblticks: " + isdblticks(line))
 	// we can't decide for sure whether we're opening or closing a chunk by looking at the backticks alone, cause an unnamed chunk is opend the same way it is closed.  so in addition, check that inchunk is false.
         if (/^``[^`]*/.test(line) && !inchunk) {
         
@@ -169,9 +177,9 @@ export function ct(text: string, ctfile: string) : string {
 	    prevtxt = ""
             // print("")
 	} else if(inchunk) { // when we're in chunk remember line
-	    chunk += line + "\n"
+	    chunk += line // + "\n"
 	} else { // remember text between chunks
-	    prevtxt += line + "\n"
+	    prevtxt += line // + "\n"
             // console.log(line) // for debugging
 	}
 
@@ -214,6 +222,7 @@ export function ct(text: string, ctfile: string) : string {
         
         // assemble the code
         var [out, _] = assemble(roots[filename], "", filename, proglang, 1, ctfile, conf)
+        console.log("out: " + out)
         // printtree(roots[filename])
 
 	// and write it to file
@@ -265,13 +274,13 @@ function checkdecl(node: Node) : boolean {
 
 
 // isdeclaration returns true if line is the declaration line of a code chunk
-function isdeclaration(line: string) : boolean {
+/*function isdeclaration(line: string) : boolean {
     // return line.match(/^<<[^\>]*$/)
     // the line needs start ticks and a wordchar after that
     var startticks = /^``[^`]*\n?$/.test(line)
     var wordchar = /^``.*\w+.*\n?$/.test(line) // why \n needed?
     return startticks && wordchar
-}
+}*/
 
 // isname returns true if line is a referencing name line of a code chunk
 function isname(line: string) : boolean {
@@ -281,7 +290,7 @@ function isname(line: string) : boolean {
 // isdblticks says if the line consists of two ticks only (not considering programming-language hashtag)
 // this could either be a start line of an unnamed chunk or an end line of a chunk
 function isdblticks(line: string) : boolean {
-    var ret = /^``(\s+#\w+)?$/.test(line)
+    var ret = /^``(\s+#\w+)?\s*$/.test(line)
     //debug(line)
     //debug("isdblticks: '" + line + "':" + ret)
     return ret
@@ -292,10 +301,13 @@ function isdblticks(line: string) : boolean {
 function getname(line: string) : string {
     // remove the leading ticks (openings and references)
     var name = line.replace(/^[^`]*``/, "") // replace only first
+    
     // remove the trailing ticks (references only)
     name = name.replace(/``.*/, "") // chunk declarations do not have this
+    
     // remove the newline (openings only)
     name = name.replace(/\n$/, "")
+    
     // replace programming language hash tag if there (openings only)
     name = name.replace(/\s+\#\w+$/, "")
 
@@ -418,13 +430,18 @@ function put(path: string, text: string, ict: number, prevtxt: string) {
 	}
 
         // a colon at the path end indicates that this is a declaration
+        console.log("path: " + path)
         var isdeclaration = /:\s*$/.test(path)
 
         // remove the colon from path
         path = path.replace(/:\s*$/, "")
 
+        if (currentnode) {
+                console.log("current node: " + currentnode.name)
+        }
         // find the node, if not there, create it
         var node = cdmk(currentnode, path, ict)
+        console.log("node: " + node.name)
 
         // we'd like to check that a node needs to have been declared with : before text can be appended to it. for that, it doesn't help to check if a node is there, cause it might have already been created as a parent of a node. so we introduce a node.d property.
 
@@ -432,7 +449,7 @@ function put(path: string, text: string, ict: number, prevtxt: string) {
             console.log("error (line " + ict + "): chunk " + path + " has already been declared, maybe drop the colon ':'")
             process.exit()
 	} else if (!isdeclaration && !node.d) {
-            console.log("error (line " + ict + "): chunk " + path + " needs to be declared with ':' before text is appended to it")
+            console.log("error (line " + ict + "): chunk " + path + " needs to be declared with ':' before text is appended to it, node.d: " + node.d)
             process.exit()
 	}
 
@@ -492,6 +509,7 @@ function cdmk(node: Node, path: string, ict: number) : Node {
     // follow the path
         
     var elems = path.split("/")
+    console.log("elems[0]: '" + elems[0] + "'")
 
     var search = false // search for the next name
 
@@ -523,13 +541,13 @@ function cdmk(node: Node, path: string, ict: number) : Node {
 	// standard:
         // walk one step
         var walk = cdone(node, elem, ict)
+        console.log("walk: " + walk)
         // if child not there, create it
         if (walk == null) {
             walk = createadd(elem, node)
 	}
         node = walk
     }
-    // print("put return: " + str(node.name))
     return node // the node we ended up at
 }
 
@@ -542,7 +560,7 @@ function concatcreatechilds(node: Node, text: string, ict: number, prevtxt: stri
 
     // make line arrays for text and prevtxt.
     
-    // replace the last \n so that spli doesn't produce an empty line at the end.
+    // replace the last \n so that split doesn't produce an empty line at the end.
     text = text.replace(/\n$/, "")
     var a = text.split("\n")
     var newlines = makelines(a, ict)
@@ -687,18 +705,21 @@ function bfs(node: Node, name: string, out: Node[]) {
 
 // cdone walks one step from node
 function cdone(node: Node, step: string, ict: number) : Node {
+    //console.log("step: " + step.length)
     if (step == GHOST) {
         // we may not walk into a ghost node via path
         console.log("error (line " + ict + "): don't use string '{GHOST}' in paths")
         process.exit()
     }
-    if (step == "") {
+    // step is only blank space? stay.
+    if (/^\s*$/.test(step)) { //. == 0) { // quick fix? if (step == "") {
         step = "."
     }
     if (step == "..") { // up the tree
         // print(f"call exitghost for {pwd(node)}")
         exitghost(node)
     }
+    //console.log("step: " + step)
     if (step in node.cd) {
         return node.cd[step]
     }
@@ -775,7 +796,8 @@ function assemble(node: Node, shouldspace: string, rootname: string, proglang: s
     //debug("addspace: '" + addspace + "'")
 
      // insert comments from previous text nodes.  do this here because the programming language is now safe to be known after all the nodes have been put.  line referencing depends on whether lines were inserted, so do it here also.
-    var outlines = insertcmt(node.lines, node.prevlines, proglang, node.isroot(), ctfile, conf)
+    //var outlines = insertcmt(node.lines, node.prevlines, proglang, node.isroot(), ctfile, conf)
+    var outlines = node.lines
     //debug("outlines: ")
     //debug(outlines)
 
@@ -790,7 +812,7 @@ function assemble(node: Node, shouldspace: string, rootname: string, proglang: s
     var ighost = 0 
     // for (var line of lines) {
     for (var i = 0; i < outlines.length; i++) {
-	var line = outlines[i]
+	var line = outlines[i]//bm
         if (isname(line.txt)) {
 
             // remember leading whitespace
@@ -808,6 +830,7 @@ function assemble(node: Node, shouldspace: string, rootname: string, proglang: s
 		//debug("assemble ghost child " + ighost + " for " + node.name)
 		child = node.ghostchilds[ighost]
 		var [outnew, linenrnew] = assemble(child, childshouldspace, rootname, proglang, igen, ctfile, conf)
+                console.log("outnew: " + outnew)
 		// append the text
 		out += outnew
 		igen = linenrnew

@@ -99,7 +99,7 @@
         "typescript": "^5.8.3"
     },
     "dependencies": {
-        "@vscode/vsce": "^2.32.0",
-        "tsc": "^2.0.4"
+        "@vscode/vsce": ">=2.32.0",
+        "tsc": ">=2.0.4"
     }
 }
