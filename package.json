@@ -2,7 +2,7 @@
     "name": "codetext",
     "displayName": "ct - codetext",
     "description": "codetext for vs code",
-    "version": "0.0.9",
+    "version": "0.0.10",
     "publisher": "tnustrings",
     "repository": "https://github.com/tnustrings/ct-vscode",
     "engines": {
