@@ -147,7 +147,7 @@ export function ct(text: string, ctfile: string) : string {
     // for (line of lines) {
     for (var i = 0; i < lines.length; i++) {
 	var line = lines[i]
-	console.log("line: '" + line + "'")
+	//console.log("line: '" + line + "'")
         //console.log("isdblticks: " + isdblticks(line))
 	// we can't decide for sure whether we're opening or closing a chunk by looking at the backticks alone, cause an unnamed chunk is opend the same way it is closed.  so in addition, check that inchunk is false.
         if (/^``[^`]*/.test(line) && !inchunk) {
@@ -222,7 +222,6 @@ export function ct(text: string, ctfile: string) : string {
         
         // assemble the code
         var [out, _] = assemble(roots[filename], "", filename, proglang, 1, ctfile, conf)
-        console.log("out: " + out)
         // printtree(roots[filename])
 
 	// and write it to file
@@ -430,18 +429,13 @@ function put(path: string, text: string, ict: number, prevtxt: string) {
 	}
 
         // a colon at the path end indicates that this is a declaration
-        console.log("path: " + path)
         var isdeclaration = /:\s*$/.test(path)
 
         // remove the colon from path
         path = path.replace(/:\s*$/, "")
 
-        if (currentnode) {
-                console.log("current node: " + currentnode.name)
-        }
         // find the node, if not there, create it
         var node = cdmk(currentnode, path, ict)
-        console.log("node: " + node.name)
 
         // we'd like to check that a node needs to have been declared with : before text can be appended to it. for that, it doesn't help to check if a node is there, cause it might have already been created as a parent of a node. so we introduce a node.d property.
 
@@ -509,7 +503,6 @@ function cdmk(node: Node, path: string, ict: number) : Node {
     // follow the path
         
     var elems = path.split("/")
-    console.log("elems[0]: '" + elems[0] + "'")
 
     var search = false // search for the next name
 
@@ -541,7 +534,7 @@ function cdmk(node: Node, path: string, ict: number) : Node {
 	// standard:
         // walk one step
         var walk = cdone(node, elem, ict)
-        console.log("walk: " + walk)
+        //console.log("walk: " + walk)
         // if child not there, create it
         if (walk == null) {
             walk = createadd(elem, node)
@@ -830,7 +823,6 @@ function assemble(node: Node, shouldspace: string, rootname: string, proglang: s
 		//debug("assemble ghost child " + ighost + " for " + node.name)
 		child = node.ghostchilds[ighost]
 		var [outnew, linenrnew] = assemble(child, childshouldspace, rootname, proglang, igen, ctfile, conf)
-                console.log("outnew: " + outnew)
 		// append the text
 		out += outnew
 		igen = linenrnew
